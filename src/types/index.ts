@@ -98,3 +98,30 @@ export interface StudySession {
   completedAt: string;
   createdAt: number;
 }
+
+export type MockExamSubjectKey =
+  | 'turkce'
+  | 'matematik'
+  | 'sosyal'
+  | 'fen'
+  | 'fizik'
+  | 'kimya'
+  | 'biyoloji'
+  | 'edebiyat'
+  | 'sosyal1'
+  | 'sosyal2'
+  | 'ydt';
+
+export interface MockExam {
+  id: string;
+  userId: string;
+  name: string;
+  date: string; // YYYY-MM-DD
+  tytNet: number | null;
+  aytNet: number | null;
+  field?: StudyField;
+  publisher?: string;
+  tytBreakdown?: Partial<Record<'turkce' | 'matematik' | 'sosyal' | 'fen', number>>;
+  aytBreakdown?: Partial<Record<MockExamSubjectKey, number>>;
+  createdAt: number;
+}

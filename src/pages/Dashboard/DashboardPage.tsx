@@ -22,11 +22,12 @@ import { getLocalDateKey } from '../../utils/date';
 import {
   fetchTasks,
   fetchExams,
+  fetchMockExams,
   fetchStudyStats,
   EMPTY_STUDY_STATS
 } from '../../services/firestoreService';
 import type { StudyStatsRecord } from '../../services/firestoreService';
-import type { StudyTask, TrialExam } from '../../types';
+import type { MockExam, StudyTask, TrialExam } from '../../types';
 
 export const DashboardPage: React.FC = () => {
   const { user, onboardingProfile, isTytOnly } = useAuth();
@@ -39,6 +40,7 @@ export const DashboardPage: React.FC = () => {
 
   const [tasks, setTasks] = useState<StudyTask[]>([]);
   const [exams, setExams] = useState<TrialExam[]>([]);
+  const [mockExams, setMockExams] = useState<MockExam[]>([]);
   const [studyStats, setStudyStats] = useState<StudyStatsRecord>(EMPTY_STUDY_STATS);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -48,6 +50,7 @@ export const DashboardPage: React.FC = () => {
     if (!userId) {
       setTasks([]);
       setExams([]);
+      setMockExams([]);
       setStudyStats(EMPTY_STUDY_STATS);
       setIsLoading(false);
       return;
@@ -59,15 +62,17 @@ export const DashboardPage: React.FC = () => {
       setIsLoading(true);
       setErrorMsg(null);
       try {
-        const [fetchedTasks, fetchedExams, fetchedStats] = await Promise.all([
+        const [fetchedTasks, fetchedExams, fetchedMockExams, fetchedStats] = await Promise.all([
           fetchTasks(userId),
           fetchExams(userId),
+          fetchMockExams(userId),
           fetchStudyStats(userId)
         ]);
 
         if (isMounted) {
           setTasks(fetchedTasks);
           setExams(fetchedExams);
+          setMockExams(fetchedMockExams);
           setStudyStats(fetchedStats);
         }
       } catch (err) {
@@ -98,33 +103,44 @@ export const DashboardPage: React.FC = () => {
   const taskCompletionPercent =
     visibleTasks.length > 0 ? Math.round((completedTasksCount / visibleTasks.length) * 100) : 0;
 
-  // Exam metrics
-  const tytExams = useMemo(
-    () =>
-      exams
+  // Exam metrics (combined mockExams + legacy exams)
+  const tytExams = useMemo(() => {
+    const combined = [
+      ...mockExams
+        .filter((e): e is MockExam & { tytNet: number } => e.tytNet !== null)
+        .map((e) => ({ name: e.name, date: e.date, total: e.tytNet })),
+      ...exams
         .filter((e) => e.examType === 'TYT')
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-    [exams]
-  );
+        .map((e) => ({ name: e.name, date: e.date, total: e.scores.total }))
+    ];
+    return combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [exams, mockExams]);
 
-  const aytExams = useMemo(
-    () =>
-      exams
+  const aytExams = useMemo(() => {
+    const combined = [
+      ...mockExams
+        .filter(
+          (e): e is MockExam & { aytNet: number } =>
+            e.aytNet !== null && (!e.field || e.field === studyField)
+        )
+        .map((e) => ({ name: e.name, date: e.date, total: e.aytNet })),
+      ...exams
         .filter((e) => e.examType === 'AYT' && (!e.field || e.field === studyField))
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-    [exams, studyField]
-  );
+        .map((e) => ({ name: e.name, date: e.date, total: e.scores.total }))
+    ];
+    return combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [exams, mockExams, studyField]);
 
   const latestTyt = tytExams[0] ?? null;
   const tytDiff =
     tytExams.length > 1
-      ? parseFloat((tytExams[0].scores.total - tytExams[1].scores.total).toFixed(2))
+      ? parseFloat((tytExams[0].total - tytExams[1].total).toFixed(2))
       : null;
 
   const latestAyt = aytExams[0] ?? null;
   const aytDiff =
     aytExams.length > 1
-      ? parseFloat((aytExams[0].scores.total - aytExams[1].scores.total).toFixed(2))
+      ? parseFloat((aytExams[0].total - aytExams[1].total).toFixed(2))
       : null;
 
   // Weekly study hours & active streak from real Firestore studyStats
@@ -162,16 +178,17 @@ export const DashboardPage: React.FC = () => {
   const tytTargetNet = 105;
   const aytTargetNet = 75;
   const tytProgressPercent = latestTyt
-    ? Math.min(100, Math.round((latestTyt.scores.total / tytTargetNet) * 100))
+    ? Math.min(100, Math.round((latestTyt.total / tytTargetNet) * 100))
     : 0;
   const aytProgressPercent = latestAyt
-    ? Math.min(100, Math.round((latestAyt.scores.total / aytTargetNet) * 100))
+    ? Math.min(100, Math.round((latestAyt.total / aytTargetNet) * 100))
     : 0;
 
   const getCoachInsight = () => {
     if (
       visibleTasks.length === 0 &&
       exams.length === 0 &&
+      mockExams.length === 0 &&
       weeklyHours === 0 &&
       weeklyRemainingMins === 0
     ) {
@@ -312,7 +329,7 @@ export const DashboardPage: React.FC = () => {
           <div>
             <div className="flex items-baseline gap-2 mb-1.5">
               <span className="text-2xl font-bold text-slate-900 dark:text-white">
-                {isLoading ? '...' : latestTyt ? latestTyt.scores.total.toFixed(2) : '0.00'}
+                {isLoading ? '...' : latestTyt ? latestTyt.total.toFixed(2) : '0.00'}
               </span>
               {!isLoading && tytDiff !== null && (
                 <span
@@ -345,7 +362,7 @@ export const DashboardPage: React.FC = () => {
             <div>
               <div className="flex items-baseline gap-2 mb-1.5">
                 <span className="text-2xl font-bold text-slate-900 dark:text-white">
-                  {isLoading ? '...' : latestAyt ? latestAyt.scores.total.toFixed(2) : '0.00'}
+                  {isLoading ? '...' : latestAyt ? latestAyt.total.toFixed(2) : '0.00'}
                 </span>
                 {!isLoading && aytDiff !== null && (
                   <span
@@ -504,7 +521,7 @@ export const DashboardPage: React.FC = () => {
                 <div className="flex justify-between text-xs">
                   <span className="text-slate-500 dark:text-slate-400">TYT Net Hedefi</span>
                   <span className="text-slate-900 dark:text-white font-medium">
-                    {latestTyt ? latestTyt.scores.total.toFixed(2) : '0.00'} / {tytTargetNet.toFixed(2)}
+                    {latestTyt ? latestTyt.total.toFixed(2) : '0.00'} / {tytTargetNet.toFixed(2)}
                   </span>
                 </div>
                 <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
@@ -520,7 +537,7 @@ export const DashboardPage: React.FC = () => {
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-500 dark:text-slate-400">AYT ({studyField}) Net Hedefi</span>
                     <span className="text-slate-900 dark:text-white font-medium">
-                      {latestAyt ? latestAyt.scores.total.toFixed(2) : '0.00'} / {aytTargetNet.toFixed(2)}
+                      {latestAyt ? latestAyt.total.toFixed(2) : '0.00'} / {aytTargetNet.toFixed(2)}
                     </span>
                   </div>
                   <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">

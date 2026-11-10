@@ -9,7 +9,7 @@ import {
   doc
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { StudySession, StudyTask, TrialExam, UserOnboardingProfile } from '../types';
+import type { MockExam, StudySession, StudyTask, TrialExam, UserOnboardingProfile } from '../types';
 
 export interface StudyStatsData {
   dailyMinutes: Record<string, number>;
@@ -28,6 +28,7 @@ export const EMPTY_STUDY_STATS: StudyStatsRecord = {
 
 const TASKS_COLLECTION = 'tasks';
 const EXAMS_COLLECTION = 'exams';
+const MOCK_EXAMS_COLLECTION = 'mockExams';
 const STATS_COLLECTION = 'stats';
 const STUDY_SESSIONS_COLLECTION = 'studySessions';
 const USER_PROFILES_COLLECTION = 'userProfiles';
@@ -337,4 +338,85 @@ export const addStudySessionToFirestore = async (
     createdAt,
     ...(cleanTopic ? { focusTopic: cleanTopic } : {})
   };
+};
+
+// ==========================================
+// MOCK EXAMS (TYT / AYT Deneme Sonuçları ve Grafik)
+// ==========================================
+
+export const fetchMockExams = async (userId: string): Promise<MockExam[]> => {
+  const q = query(collection(db, MOCK_EXAMS_COLLECTION), where('userId', '==', userId));
+  const snapshot = await getDocs(q);
+
+  const items: MockExam[] = snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      userId: String(data.userId ?? userId),
+      name: typeof data.name === 'string' && data.name.trim() ? data.name : 'Deneme Sınavı',
+      date: typeof data.date === 'string' ? data.date : '',
+      tytNet: typeof data.tytNet === 'number' ? data.tytNet : null,
+      aytNet: typeof data.aytNet === 'number' ? data.aytNet : null,
+      ...(data.field ? { field: data.field } : {}),
+      ...(typeof data.publisher === 'string' && data.publisher.trim()
+        ? { publisher: data.publisher }
+        : {}),
+      ...(data.tytBreakdown ? { tytBreakdown: data.tytBreakdown } : {}),
+      ...(data.aytBreakdown ? { aytBreakdown: data.aytBreakdown } : {}),
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : 0
+    };
+  });
+
+  items.sort((a, b) => {
+    const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+    if (!Number.isNaN(dateDiff) && dateDiff !== 0) return dateDiff;
+    return b.createdAt - a.createdAt;
+  });
+
+  return items;
+};
+
+export const addMockExamToFirestore = async (
+  userId: string,
+  examData: Omit<MockExam, 'id' | 'userId' | 'createdAt'>
+): Promise<MockExam> => {
+  const createdAt = Date.now();
+  const cleanPublisher = examData.publisher?.trim();
+
+  const payload = {
+    userId,
+    name: examData.name.trim(),
+    date: examData.date,
+    tytNet: examData.tytNet,
+    aytNet: examData.aytNet,
+    createdAt,
+    ...(examData.field ? { field: examData.field } : {}),
+    ...(cleanPublisher ? { publisher: cleanPublisher } : {}),
+    ...(examData.tytBreakdown && Object.keys(examData.tytBreakdown).length > 0
+      ? { tytBreakdown: examData.tytBreakdown }
+      : {}),
+    ...(examData.aytBreakdown && Object.keys(examData.aytBreakdown).length > 0
+      ? { aytBreakdown: examData.aytBreakdown }
+      : {})
+  };
+
+  const docRef = await addDoc(collection(db, MOCK_EXAMS_COLLECTION), payload);
+
+  return {
+    id: docRef.id,
+    userId,
+    name: payload.name,
+    date: payload.date,
+    tytNet: payload.tytNet,
+    aytNet: payload.aytNet,
+    createdAt,
+    ...(examData.field ? { field: examData.field } : {}),
+    ...(cleanPublisher ? { publisher: cleanPublisher } : {}),
+    ...(payload.tytBreakdown ? { tytBreakdown: payload.tytBreakdown } : {}),
+    ...(payload.aytBreakdown ? { aytBreakdown: payload.aytBreakdown } : {})
+  };
+};
+
+export const deleteMockExamFromFirestore = async (examId: string): Promise<void> => {
+  await deleteDoc(doc(db, MOCK_EXAMS_COLLECTION, examId));
 };
