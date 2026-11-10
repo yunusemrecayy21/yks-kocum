@@ -1,65 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Plus, 
-  CheckCircle2, 
-  Circle, 
-  Trash2, 
-  Clock, 
-  CheckSquare, 
-  BookOpen
+import {
+  Plus,
+  CheckCircle2,
+  Circle,
+  Trash2,
+  Clock,
+  CheckSquare,
+  BookOpen,
+  Sparkles
 } from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { useAuth } from '../../context/AuthContext';
+import {
+  STORAGE_PREFIXES,
+  getLocalDateKey,
+  getUserStorageKey,
+  readLocalStorageJson,
+  writeLocalStorageJson
+} from '../../utils/storage';
 import type { StudyTask, Subject } from '../../types';
-
-const INITIAL_TASKS: StudyTask[] = [
-  {
-    id: '1',
-    subject: 'Matematik',
-    topic: 'Türev Geometrik Yorumu - 60 Soru',
-    durationMinutes: 75,
-    completed: true,
-    date: new Date().toISOString().slice(0, 10),
-    category: 'AYT'
-  },
-  {
-    id: '2',
-    subject: 'Fizik',
-    topic: 'Manyetizma ve İndüksiyon Akımı Konu Özeti',
-    durationMinutes: 45,
-    completed: true,
-    date: new Date().toISOString().slice(0, 10),
-    category: 'AYT'
-  },
-  {
-    id: '3',
-    subject: 'Türkçe',
-    topic: 'TYT Paragraf Denemesi (20 Soru Hız Egzersizi)',
-    durationMinutes: 30,
-    completed: true,
-    date: new Date().toISOString().slice(0, 10),
-    category: 'TYT'
-  },
-  {
-    id: '4',
-    subject: 'Biyoloji',
-    topic: 'Genden Proteine Sentez Mekanizması',
-    durationMinutes: 40,
-    completed: false,
-    date: new Date().toISOString().slice(0, 10),
-    category: 'AYT'
-  },
-  {
-    id: '5',
-    subject: 'Kimya',
-    topic: 'Gazlar Karma Test Çözümü',
-    durationMinutes: 50,
-    completed: false,
-    date: new Date().toISOString().slice(0, 10),
-    category: 'Soru Çözümü'
-  },
-];
 
 const SUBJECT_LIST: Subject[] = [
   'Matematik',
@@ -77,18 +37,12 @@ const SUBJECT_LIST: Subject[] = [
 ];
 
 export const DailySchedulePage: React.FC = () => {
-  const { isTytOnly } = useAuth();
-  const [tasks, setTasks] = useState<StudyTask[]>(() => {
-    const saved = localStorage.getItem('yks_daily_tasks');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return INITIAL_TASKS;
-      }
-    }
-    return INITIAL_TASKS;
-  });
+  const { user, isTytOnly } = useAuth();
+  const storageKey = getUserStorageKey(STORAGE_PREFIXES.TASKS, user?.id);
+
+  // Start with empty array []; load from localStorage in useEffect
+  const [tasks, setTasks] = useState<StudyTask[]>([]);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
 
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [isAdding, setIsAdding] = useState(false);
@@ -99,9 +53,19 @@ export const DailySchedulePage: React.FC = () => {
   const [duration, setDuration] = useState('45');
   const [category, setCategory] = useState<'TYT' | 'AYT' | 'Tekrar' | 'Soru Çözümü'>('TYT');
 
+  // Check localStorage on mount / user change
   useEffect(() => {
-    localStorage.setItem('yks_daily_tasks', JSON.stringify(tasks));
-  }, [tasks]);
+    const stored = readLocalStorageJson<StudyTask[]>(storageKey, []);
+    setTasks(Array.isArray(stored) ? stored : []);
+    setLoadedKey(storageKey);
+  }, [storageKey]);
+
+  // Persist changes immediately after initial load completes
+  useEffect(() => {
+    if (loadedKey === storageKey) {
+      writeLocalStorageJson(storageKey, tasks);
+    }
+  }, [tasks, storageKey, loadedKey]);
 
   useEffect(() => {
     if (isTytOnly && category === 'AYT') {
@@ -110,13 +74,13 @@ export const DailySchedulePage: React.FC = () => {
   }, [isTytOnly, category]);
 
   const toggleTask = (id: string) => {
-    setTasks(prev =>
-      prev.map(t => (t.id === id ? { ...t, completed: !t.completed } : t))
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
     );
   };
 
   const deleteTask = (id: string) => {
-    setTasks(prev => prev.filter(t => t.id !== id));
+    setTasks((prev) => prev.filter((t) => t.id !== id));
   };
 
   const handleAddTask = (e: React.FormEvent) => {
@@ -129,20 +93,21 @@ export const DailySchedulePage: React.FC = () => {
       topic: topic.trim(),
       durationMinutes: Number(duration) || 30,
       completed: false,
-      date: new Date().toISOString().slice(0, 10),
+      date: getLocalDateKey(),
       category: isTytOnly && category === 'AYT' ? 'TYT' : category
     };
 
-    setTasks(prev => [newTask, ...prev]);
+    setTasks((prev) => [newTask, ...prev]);
     setTopic('');
     setIsAdding(false);
   };
 
-  const visibleTasks = isTytOnly ? tasks.filter(t => t.category !== 'AYT') : tasks;
-  const completedCount = visibleTasks.filter(t => t.completed).length;
-  const progressPercent = visibleTasks.length > 0 ? Math.round((completedCount / visibleTasks.length) * 100) : 0;
+  const visibleTasks = isTytOnly ? tasks.filter((t) => t.category !== 'AYT') : tasks;
+  const completedCount = visibleTasks.filter((t) => t.completed).length;
+  const progressPercent =
+    visibleTasks.length > 0 ? Math.round((completedCount / visibleTasks.length) * 100) : 0;
 
-  const filteredTasks = visibleTasks.filter(task => {
+  const filteredTasks = visibleTasks.filter((task) => {
     if (filter === 'pending') return !task.completed;
     if (filter === 'completed') return task.completed;
     return true;
@@ -256,10 +221,10 @@ export const DailySchedulePage: React.FC = () => {
                 </label>
                 <select
                   value={subject}
-                  onChange={e => setSubject(e.target.value as Subject)}
+                  onChange={(e) => setSubject(e.target.value as Subject)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-purple transition"
                 >
-                  {SUBJECT_LIST.map(sub => (
+                  {SUBJECT_LIST.map((sub) => (
                     <option key={sub} value={sub}>
                       {sub}
                     </option>
@@ -273,7 +238,7 @@ export const DailySchedulePage: React.FC = () => {
                 </label>
                 <select
                   value={category}
-                  onChange={e => setCategory(e.target.value as any)}
+                  onChange={(e) => setCategory(e.target.value as StudyTask['category'])}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-purple transition"
                 >
                   <option value="TYT">TYT</option>
@@ -292,7 +257,7 @@ export const DailySchedulePage: React.FC = () => {
                   min="5"
                   step="5"
                   value={duration}
-                  onChange={e => setDuration(e.target.value)}
+                  onChange={(e) => setDuration(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-purple transition"
                 />
               </div>
@@ -303,9 +268,10 @@ export const DailySchedulePage: React.FC = () => {
                 </label>
                 <input
                   type="text"
+                  required
                   placeholder="ör. Trigonometri 50 Soru"
                   value={topic}
-                  onChange={e => setTopic(e.target.value)}
+                  onChange={(e) => setTopic(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-purple transition"
                 />
               </div>
@@ -330,20 +296,41 @@ export const DailySchedulePage: React.FC = () => {
         </Card>
       )}
 
-      {/* Task List */}
+      {/* Task List / Empty State */}
       <div className="space-y-3">
-        {filteredTasks.length === 0 ? (
+        {visibleTasks.length === 0 ? (
+          <Card className="relative overflow-hidden text-center py-14 px-6 border-dashed border-slate-700/80 bg-[#0f172a]/60">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-purple/20 to-indigo-500/20 border border-brand-purple/30 flex items-center justify-center mx-auto mb-4 shadow-glow-purple">
+              <Sparkles className="w-8 h-8 text-brand-purpleLight" />
+            </div>
+            <h3 className="text-lg font-bold text-white tracking-tight">
+              Çalışma Listen Şu An Boş
+            </h3>
+            <p className="text-sm text-slate-400 mt-1.5 max-w-md mx-auto leading-relaxed">
+              Henüz bir görev eklemedin. Yeni bir görev ekleyerek çalışmaya başla!
+            </p>
+            {!isAdding && (
+              <button
+                onClick={() => setIsAdding(true)}
+                className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-purple hover:bg-brand-purpleHover text-white text-xs font-semibold shadow-lg shadow-brand-purple/25 transition"
+              >
+                <Plus className="w-4 h-4" />
+                <span>İlk Görevini Ekle</span>
+              </button>
+            )}
+          </Card>
+        ) : filteredTasks.length === 0 ? (
           <Card className="text-center py-12">
             <CheckSquare className="w-12 h-12 text-slate-600 mx-auto mb-3" />
             <h3 className="text-base font-semibold text-white">Bu filtrede görev bulunamadı</h3>
             <p className="text-xs text-slate-400 mt-1">
               {filter === 'completed'
-                ? 'Henüz tamamlanmış görev yok. Haydi başla!'
-                : 'Yeni bir çalışma eklemek için yukarıdaki butonu kullanabilirsin.'}
+                ? 'Henüz tamamlanmış bir görevin yok. Görevlerini işaretledikçe burada görünecek!'
+                : 'Harika! Bekleyen tüm görevlerini tamamladın.'}
             </p>
           </Card>
         ) : (
-          filteredTasks.map(task => (
+          filteredTasks.map((task) => (
             <Card
               key={task.id}
               className={`p-4 transition-all duration-200 hover:border-slate-700 ${

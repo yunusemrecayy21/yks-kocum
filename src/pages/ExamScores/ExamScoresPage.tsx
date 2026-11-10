@@ -22,6 +22,13 @@ import {
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { useAuth } from '../../context/AuthContext';
+import {
+  STORAGE_PREFIXES,
+  getLocalDateKey,
+  getUserStorageKey,
+  readLocalStorageJson,
+  writeLocalStorageJson
+} from '../../utils/storage';
 import type { StudyField, TrialExam } from '../../types';
 
 interface ScoreFieldConfig {
@@ -57,214 +64,6 @@ const AYT_FIELDS_BY_STUDY_FIELD: Record<Exclude<StudyField, 'Sadece TYT'>, Score
     { key: 'ydt', label: 'Yabancı Dil (YDT)', shortLabel: 'YDT', max: 80 }
   ]
 };
-
-const INITIAL_TYT_EXAMS: TrialExam[] = [
-  {
-    id: 'tyt-1',
-    examType: 'TYT',
-    name: 'Hız ve Renk Seviye',
-    date: '2026-09-25',
-    publisher: 'Hız ve Renk',
-    scores: { turkce: 31.0, matematik: 24.5, sosyal: 14.5, fen: 12.5, total: 82.5 }
-  },
-  {
-    id: 'tyt-2',
-    examType: 'TYT',
-    name: 'Karakök Başlangıç',
-    date: '2026-10-08',
-    publisher: 'Karakök',
-    scores: { turkce: 33.0, matematik: 25.5, sosyal: 14.5, fen: 12.0, total: 85.0 }
-  },
-  {
-    id: 'tyt-3',
-    examType: 'TYT',
-    name: 'Bilgi Sarmal TYT-1',
-    date: '2026-10-18',
-    publisher: 'Bilgi Sarmal',
-    scores: { turkce: 35.0, matematik: 27.5, sosyal: 14.75, fen: 10.5, total: 87.75 }
-  },
-  {
-    id: 'tyt-4',
-    examType: 'TYT',
-    name: 'Özdebir TG-1',
-    date: '2026-10-28',
-    publisher: 'Özdebir',
-    scores: { turkce: 32.5, matematik: 29.0, sosyal: 15.5, fen: 12.25, total: 89.25 }
-  },
-  {
-    id: 'tyt-5',
-    examType: 'TYT',
-    name: '3D Türkiye Geneli-1',
-    date: '2026-11-04',
-    publisher: '3D Yayınları',
-    scores: { turkce: 34.75, matematik: 31.5, sosyal: 16.25, fen: 14.0, total: 96.5 }
-  }
-];
-
-const INITIAL_AYT_EXAMS: TrialExam[] = [
-  // Sayısal
-  {
-    id: 'ayt-say-1',
-    examType: 'AYT',
-    field: 'Sayısal',
-    name: 'Çap AYT Başlangıç',
-    date: '2026-10-02',
-    publisher: 'Çap',
-    scores: { matematik: 25.0, fen: 27.0, total: 52.0 }
-  },
-  {
-    id: 'ayt-say-2',
-    examType: 'AYT',
-    field: 'Sayısal',
-    name: 'Limit AYT Deneme 1',
-    date: '2026-10-14',
-    publisher: 'Limit',
-    scores: { matematik: 28.0, fen: 28.5, total: 56.5 }
-  },
-  {
-    id: 'ayt-say-3',
-    examType: 'AYT',
-    field: 'Sayısal',
-    name: 'Apotemi AYT Karma',
-    date: '2026-10-22',
-    publisher: 'Apotemi',
-    scores: { matematik: 30.25, fen: 29.5, total: 59.75 }
-  },
-  {
-    id: 'ayt-say-4',
-    examType: 'AYT',
-    field: 'Sayısal',
-    name: 'Özdebir AYT TG',
-    date: '2026-11-02',
-    publisher: 'Özdebir',
-    scores: { matematik: 32.5, fen: 32.0, total: 64.5 }
-  },
-  {
-    id: 'ayt-say-5',
-    examType: 'AYT',
-    field: 'Sayısal',
-    name: '3D AYT Simülasyon',
-    date: '2026-11-08',
-    publisher: '3D Yayınları',
-    scores: { matematik: 35.0, fen: 33.25, total: 68.25 }
-  },
-
-  // Eşit Ağırlık
-  {
-    id: 'ayt-ea-1',
-    examType: 'AYT',
-    field: 'Eşit Ağırlık',
-    name: 'Bilgi Sarmal EA-1',
-    date: '2026-10-05',
-    publisher: 'Bilgi Sarmal',
-    scores: { matematik: 22.0, edebiyat: 17.5, sosyal1: 10.5, total: 50.0 }
-  },
-  {
-    id: 'ayt-ea-2',
-    examType: 'AYT',
-    field: 'Eşit Ağırlık',
-    name: 'Limit EA Karma',
-    date: '2026-10-16',
-    publisher: 'Limit',
-    scores: { matematik: 24.5, edebiyat: 19.0, sosyal1: 11.25, total: 54.75 }
-  },
-  {
-    id: 'ayt-ea-3',
-    examType: 'AYT',
-    field: 'Eşit Ağırlık',
-    name: 'Özdebir EA TG',
-    date: '2026-10-27',
-    publisher: 'Özdebir',
-    scores: { matematik: 27.25, edebiyat: 20.5, sosyal1: 12.0, total: 59.75 }
-  },
-  {
-    id: 'ayt-ea-4',
-    examType: 'AYT',
-    field: 'Eşit Ağırlık',
-    name: '3D EA Türkiye Geneli',
-    date: '2026-11-05',
-    publisher: '3D Yayınları',
-    scores: { matematik: 30.0, edebiyat: 21.25, sosyal1: 13.5, total: 64.75 }
-  },
-
-  // Sözel
-  {
-    id: 'ayt-soz-1',
-    examType: 'AYT',
-    field: 'Sözel',
-    name: 'Limit Sözel-1',
-    date: '2026-10-06',
-    publisher: 'Limit',
-    scores: { edebiyat: 18.0, sosyal1: 11.5, sosyal2: 26.0, total: 55.5 }
-  },
-  {
-    id: 'ayt-soz-2',
-    examType: 'AYT',
-    field: 'Sözel',
-    name: 'Paraf Sözel Karma',
-    date: '2026-10-18',
-    publisher: 'Paraf',
-    scores: { edebiyat: 19.5, sosyal1: 12.75, sosyal2: 28.5, total: 60.75 }
-  },
-  {
-    id: 'ayt-soz-3',
-    examType: 'AYT',
-    field: 'Sözel',
-    name: 'Özdebir Sözel TG',
-    date: '2026-10-29',
-    publisher: 'Özdebir',
-    scores: { edebiyat: 21.0, sosyal1: 13.5, sosyal2: 31.25, total: 65.75 }
-  },
-  {
-    id: 'ayt-soz-4',
-    examType: 'AYT',
-    field: 'Sözel',
-    name: '3D Sözel Simülasyon',
-    date: '2026-11-06',
-    publisher: '3D Yayınları',
-    scores: { edebiyat: 22.25, sosyal1: 14.0, sosyal2: 33.5, total: 69.75 }
-  },
-
-  // Dil
-  {
-    id: 'ayt-dil-1',
-    examType: 'AYT',
-    field: 'Dil',
-    name: 'Modadil YDT-1',
-    date: '2026-10-04',
-    publisher: 'Modadil',
-    scores: { ydt: 58.5, total: 58.5 }
-  },
-  {
-    id: 'ayt-dil-2',
-    examType: 'AYT',
-    field: 'Dil',
-    name: 'Akın Dil YDT-2',
-    date: '2026-10-15',
-    publisher: 'Akın Dil',
-    scores: { ydt: 62.75, total: 62.75 }
-  },
-  {
-    id: 'ayt-dil-3',
-    examType: 'AYT',
-    field: 'Dil',
-    name: 'YDS Publishing TG',
-    date: '2026-10-28',
-    publisher: 'YDS Publishing',
-    scores: { ydt: 67.5, total: 67.5 }
-  },
-  {
-    id: 'ayt-dil-4',
-    examType: 'AYT',
-    field: 'Dil',
-    name: 'Özdebir YDT Simülasyon',
-    date: '2026-11-07',
-    publisher: 'Özdebir',
-    scores: { ydt: 71.25, total: 71.25 }
-  }
-];
-
-const INITIAL_EXAMS: TrialExam[] = [...INITIAL_TYT_EXAMS, ...INITIAL_AYT_EXAMS];
 
 interface ChartDataPoint {
   name: string;
@@ -320,19 +119,11 @@ export const ExamScoresPage: React.FC = () => {
   const aytField: Exclude<StudyField, 'Sadece TYT'> =
     studyField === 'Sadece TYT' ? 'Sayısal' : studyField;
 
-  const storageKey = `yks_trial_exams_${user?.id ?? 'default'}`;
+  const storageKey = getUserStorageKey(STORAGE_PREFIXES.EXAMS, user?.id);
 
-  const [exams, setExams] = useState<TrialExam[]>(() => {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return INITIAL_EXAMS;
-      }
-    }
-    return INITIAL_EXAMS;
-  });
+  // Start with empty array []; load from localStorage in useEffect
+  const [exams, setExams] = useState<TrialExam[]>([]);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'TYT' | 'AYT'>('TYT');
   const [isAdding, setIsAdding] = useState(false);
@@ -340,8 +131,22 @@ export const ExamScoresPage: React.FC = () => {
   // New Exam Form Fields
   const [name, setName] = useState('');
   const [publisher, setPublisher] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => getLocalDateKey());
   const [scoreInputs, setScoreInputs] = useState<Record<string, string>>({});
+
+  // Load saved exams from localStorage on mount / user change
+  useEffect(() => {
+    const stored = readLocalStorageJson<TrialExam[]>(storageKey, []);
+    setExams(Array.isArray(stored) ? stored : []);
+    setLoadedKey(storageKey);
+  }, [storageKey]);
+
+  // Save exams to localStorage whenever state updates after initial load
+  useEffect(() => {
+    if (loadedKey === storageKey) {
+      writeLocalStorageJson(storageKey, exams);
+    }
+  }, [exams, storageKey, loadedKey]);
 
   // Enforce TYT-only mode if user is 9/10 grade or Sadece TYT
   useEffect(() => {
@@ -354,10 +159,6 @@ export const ExamScoresPage: React.FC = () => {
   useEffect(() => {
     setScoreInputs({});
   }, [activeTab, studyField]);
-
-  useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(exams));
-  }, [exams, storageKey]);
 
   // Determine active form fields based on TYT vs AYT + Study Field
   const activeScoreFields: ScoreFieldConfig[] = useMemo(() => {
@@ -599,9 +400,13 @@ export const ExamScoresPage: React.FC = () => {
         </div>
 
         {chartData.length === 0 ? (
-          <div className="h-64 flex flex-col items-center justify-center text-slate-500 text-xs">
-            <LineChartIcon className="w-8 h-8 mb-2 opacity-40" />
-            <span>Grafiğin görüntülenmesi için en az bir deneme kaydı gereklidir.</span>
+          <div className="h-64 flex flex-col items-center justify-center text-center px-4 border border-dashed border-slate-800 rounded-2xl bg-slate-950/30">
+            <div className="w-12 h-12 rounded-2xl bg-brand-purple/10 border border-brand-purple/25 flex items-center justify-center mb-3 text-brand-purpleLight">
+              <LineChartIcon className="w-6 h-6" />
+            </div>
+            <p className="text-sm font-medium text-slate-300 max-w-md leading-relaxed">
+              Henüz deneme verisi girmedin. İlk denemeni ekleyerek yükselişini izle.
+            </p>
           </div>
         ) : (
           <div className="h-72 w-full">
@@ -812,12 +617,12 @@ export const ExamScoresPage: React.FC = () => {
         </div>
 
         {currentTabExams.length === 0 ? (
-          <Card className="text-center py-12">
+          <Card className="text-center py-12 border-dashed border-slate-800">
             <BarChart3 className="w-12 h-12 text-slate-600 mx-auto mb-3" />
             <h3 className="text-base font-semibold text-white">
               Henüz {activeTab} denemesi girilmedi
             </h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
               "Deneme Ekle" butonuna basarak ilk deneme netini kaydedebilirsin.
             </p>
           </Card>

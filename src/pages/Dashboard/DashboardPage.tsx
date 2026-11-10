@@ -1,20 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  Target, 
-  CheckSquare, 
-  BarChart3, 
-  TrendingUp, 
-  Flame, 
+import {
+  Target,
+  CheckSquare,
+  BarChart3,
+  TrendingUp,
+  Flame,
   Clock,
   Timer,
   Sparkles,
   ChevronRight,
-  GraduationCap
+  GraduationCap,
+  Plus
 } from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { useAuth } from '../../context/AuthContext';
+import {
+  STORAGE_PREFIXES,
+  EMPTY_STUDY_STATS,
+  getLocalDateKey,
+  getUserStorageKey,
+  readLocalStorageJson
+} from '../../utils/storage';
+import type { StudyStatsData } from '../../utils/storage';
+import type { StudyTask, TrialExam } from '../../types';
 
 export const DashboardPage: React.FC = () => {
   const { user, onboardingProfile, isTytOnly } = useAuth();
@@ -24,188 +34,116 @@ export const DashboardPage: React.FC = () => {
   const gradeLevel = onboardingProfile?.gradeLevel || '12. Sınıf';
   const studyField = onboardingProfile?.studyField || 'Sayısal';
 
-  const getDailySnapshotTasks = () => {
-    if (isTytOnly) {
-      return [
-        {
-          subject: 'Matematik (TYT)',
-          topic: 'Problemler & Sayı-Kesir Hız Çalışması',
-          status: true,
-          duration: '60 dk',
-        },
-        {
-          subject: 'Türkçe (TYT)',
-          topic: 'Paragrafta Yapı & Anlatım Teknikleri (2 Deneme)',
-          status: true,
-          duration: '50 dk',
-        },
-        {
-          subject: 'Fizik (TYT)',
-          topic: 'Optik ve Dalgalar Temel Kavram Tekrarı',
-          status: true,
-          duration: '40 dk',
-        },
-        {
-          subject: 'Coğrafya (TYT)',
-          topic: 'Harita Bilgisi ve İklim Tipleri Soru Çözümü',
-          status: false,
-          duration: '35 dk',
-        },
-        {
-          subject: 'Biyoloji (TYT)',
-          topic: 'Hücre Bölünmeleri ve Kalıtım Özeti',
-          status: false,
-          duration: '40 dk',
-        },
-      ];
+  const tasksKey = getUserStorageKey(STORAGE_PREFIXES.TASKS, user?.id);
+  const examsKey = getUserStorageKey(STORAGE_PREFIXES.EXAMS, user?.id);
+  const statsKey = getUserStorageKey(STORAGE_PREFIXES.STUDY_STATS, user?.id);
+
+  const [tasks, setTasks] = useState<StudyTask[]>([]);
+  const [exams, setExams] = useState<TrialExam[]>([]);
+  const [studyStats, setStudyStats] = useState<StudyStatsData>(EMPTY_STUDY_STATS);
+
+  // Load real data from localStorage on mount / user change
+  useEffect(() => {
+    const storedTasks = readLocalStorageJson<StudyTask[]>(tasksKey, []);
+    const storedExams = readLocalStorageJson<TrialExam[]>(examsKey, []);
+    const storedStats = readLocalStorageJson<StudyStatsData>(statsKey, EMPTY_STUDY_STATS);
+
+    setTasks(Array.isArray(storedTasks) ? storedTasks : []);
+    setExams(Array.isArray(storedExams) ? storedExams : []);
+    setStudyStats({
+      dailyMinutes: storedStats?.dailyMinutes ?? {},
+      dailySessions: storedStats?.dailySessions ?? {}
+    });
+  }, [tasksKey, examsKey, statsKey]);
+
+  // Task metrics
+  const visibleTasks = useMemo(
+    () => (isTytOnly ? tasks.filter((t) => t.category !== 'AYT') : tasks),
+    [tasks, isTytOnly]
+  );
+  const completedTasksCount = visibleTasks.filter((t) => t.completed).length;
+  const taskCompletionPercent =
+    visibleTasks.length > 0 ? Math.round((completedTasksCount / visibleTasks.length) * 100) : 0;
+
+  // Exam metrics
+  const tytExams = useMemo(
+    () =>
+      exams
+        .filter((e) => e.examType === 'TYT')
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    [exams]
+  );
+
+  const aytExams = useMemo(
+    () =>
+      exams
+        .filter((e) => e.examType === 'AYT' && (!e.field || e.field === studyField))
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    [exams, studyField]
+  );
+
+  const latestTyt = tytExams[0] ?? null;
+  const tytDiff =
+    tytExams.length > 1
+      ? parseFloat((tytExams[0].scores.total - tytExams[1].scores.total).toFixed(2))
+      : null;
+
+  const latestAyt = aytExams[0] ?? null;
+  const aytDiff =
+    aytExams.length > 1
+      ? parseFloat((aytExams[0].scores.total - aytExams[1].scores.total).toFixed(2))
+      : null;
+
+  // Weekly study hours & active streak from real studyStats
+  const { streakDays, weeklyHours, weeklyRemainingMins } = useMemo(() => {
+    let totalWeeklyMins = 0;
+    for (let offset = 0; offset < 7; offset++) {
+      const d = new Date();
+      d.setDate(d.getDate() - offset);
+      totalWeeklyMins += studyStats.dailyMinutes[getLocalDateKey(d)] ?? 0;
     }
 
-    if (studyField === 'Eşit Ağırlık') {
-      return [
-        {
-          subject: 'Matematik (AYT)',
-          topic: 'Türev Uygulamaları & Maksimum-Minimum Problemleri',
-          status: true,
-          duration: '60 dk',
-        },
-        {
-          subject: 'Edebiyat (AYT)',
-          topic: 'Cumhuriyet Dönemi Şiir ve Roman Analizi',
-          status: true,
-          duration: '45 dk',
-        },
-        {
-          subject: 'Türkçe (TYT)',
-          topic: 'Paragrafta Yapı & Anlatım Teknikleri (2 Deneme)',
-          status: true,
-          duration: '50 dk',
-        },
-        {
-          subject: 'Sosyal-1 (AYT)',
-          topic: 'Kurtuluş Savaşı Muharebeler Dönemi Tekrarı',
-          status: false,
-          duration: '40 dk',
-        },
-        {
-          subject: 'Matematik (TYT)',
-          topic: 'Üslü ve Köklü İfadeler Karma Test',
-          status: false,
-          duration: '45 dk',
-        },
-      ];
+    let streak = 0;
+    const todayMins = studyStats.dailyMinutes[getLocalDateKey(new Date())] ?? 0;
+    let checkOffset = todayMins > 0 ? 0 : 1;
+
+    while (checkOffset < 365) {
+      const d = new Date();
+      d.setDate(d.getDate() - checkOffset);
+      const mins = studyStats.dailyMinutes[getLocalDateKey(d)] ?? 0;
+      if (mins > 0) {
+        streak++;
+        checkOffset++;
+      } else {
+        break;
+      }
     }
 
-    if (studyField === 'Sözel') {
-      return [
-        {
-          subject: 'Edebiyat (AYT)',
-          topic: 'Divan Edebiyatı Nazım Biçimleri & Şairler',
-          status: true,
-          duration: '50 dk',
-        },
-        {
-          subject: 'Sosyal-1 (AYT)',
-          topic: 'Osmanlı Kültür ve Medeniyeti Konu Özeti',
-          status: true,
-          duration: '45 dk',
-        },
-        {
-          subject: 'Türkçe (TYT)',
-          topic: 'Paragraf Denemesi & Dil Bilgisi Tekrarı',
-          status: true,
-          duration: '45 dk',
-        },
-        {
-          subject: 'Sosyal-2 (AYT)',
-          topic: 'Felsefe Tarihi & Mantık Çıkmış Sorular',
-          status: false,
-          duration: '40 dk',
-        },
-        {
-          subject: 'Coğrafya (TYT)',
-          topic: 'Türkiye Fiziki Coğrafyası Harita Çalışması',
-          status: false,
-          duration: '35 dk',
-        },
-      ];
-    }
+    return {
+      streakDays: streak,
+      weeklyHours: Math.floor(totalWeeklyMins / 60),
+      weeklyRemainingMins: totalWeeklyMins % 60
+    };
+  }, [studyStats]);
 
-    if (studyField === 'Dil') {
-      return [
-        {
-          subject: 'Yabancı Dil (YDT)',
-          topic: 'Reading Comprehension & Cloze Test Pratiği',
-          status: true,
-          duration: '60 dk',
-        },
-        {
-          subject: 'Yabancı Dil (YDT)',
-          topic: 'Academic Vocabulary & Phrasal Verbs Tekrarı',
-          status: true,
-          duration: '45 dk',
-        },
-        {
-          subject: 'Türkçe (TYT)',
-          topic: 'Paragrafta Anlam & Cümlede Anlam (30 Soru)',
-          status: true,
-          duration: '40 dk',
-        },
-        {
-          subject: 'Yabancı Dil (YDT)',
-          topic: 'Grammar: Modals & Conditionals Karma Test',
-          status: false,
-          duration: '45 dk',
-        },
-        {
-          subject: 'Matematik (TYT)',
-          topic: 'Temel Kavramlar & Sayı Problemleri',
-          status: false,
-          duration: '45 dk',
-        },
-      ];
-    }
-
-    // Default: Sayısal (11, 12, Mezun)
-    return [
-      {
-        subject: 'Matematik (AYT)',
-        topic: 'Türev Uygulamaları & Maksimum-Minimum Problemleri',
-        status: true,
-        duration: '60 dk',
-      },
-      {
-        subject: 'Fizik (AYT)',
-        topic: 'Elektriksel Potansiyel ve İş Soru Çözümü',
-        status: true,
-        duration: '45 dk',
-      },
-      {
-        subject: 'Türkçe (TYT)',
-        topic: 'Paragrafta Yapı & Anlatım Teknikleri (2 Deneme)',
-        status: true,
-        duration: '50 dk',
-      },
-      {
-        subject: 'Biyoloji (AYT)',
-        topic: 'Fotosentez ve Kemosentez Reaksiyonları Tekrarı',
-        status: false,
-        duration: '40 dk',
-      },
-      {
-        subject: 'Kimya (AYT)',
-        topic: 'Sulu Çözeltilerde Denge & pH Hesaplamaları',
-        status: false,
-        duration: '50 dk',
-      },
-    ];
-  };
+  const tytTargetNet = 105;
+  const aytTargetNet = 75;
+  const tytProgressPercent = latestTyt
+    ? Math.min(100, Math.round((latestTyt.scores.total / tytTargetNet) * 100))
+    : 0;
+  const aytProgressPercent = latestAyt
+    ? Math.min(100, Math.round((latestAyt.scores.total / aytTargetNet) * 100))
+    : 0;
 
   const getCoachInsight = () => {
+    if (visibleTasks.length === 0 && exams.length === 0 && weeklyHours === 0 && weeklyRemainingMins === 0) {
+      return `Kurulumun tamamlandı! İlk adım olarak Günlük Çalışma Programı'na bugünün hedeflerini ekleyebilir, Çalışma Sayacı ile odaklanabilir veya ilk deneme sonucunu kaydedebilirsin.`;
+    }
     if (isTytOnly) {
       return `${gradeLevel} sürecinde düzenli TYT paragraf ve problem pratiği yapman, ileriki sınıflar için güçlü bir temel oluşturacaktır. Konu eksiklerini erken kapatmaya devam et!`;
     }
     if (studyField === 'Eşit Ağırlık') {
-      return 'Eşit Ağırlık sıralamasında fark yaratmak için AYT Matematik netlerini korurken Edebiyat ve Sosyal-1 ezber tekrarlarını haftalık periyotlara yayman çok önemli.';
+      return 'Eşit Ağırlık sıralamasında fark yaratmak için AYT Matematik netlerini korurken Edebiyat ve Sosyal-1 tekrarlarını haftalık periyotlara yayman çok önemli.';
     }
     if (studyField === 'Sözel') {
       return 'Edebiyat, Sosyal-1 ve Sosyal-2 branşlarında bilgi tutarlılığını artırmak için görsel özet kartlarıyla haftalık tekrarlar yapman netlerini hızla yukarı taşıyacaktır.';
@@ -213,10 +151,8 @@ export const DashboardPage: React.FC = () => {
     if (studyField === 'Dil') {
       return 'YDT okuma hızını ve kelime dağarcığını geliştirirken TYT Türkçe ve Matematik netlerini yüksek tutmak seni hedeflediğin bölüme bir adım daha yaklaştıracaktır.';
     }
-    return 'Matematik branş denemelerinde süre yönetimin güçlendi. Fen kısmında özellikle Kimya ve Fizik konularına odaklanman netini 4-5 puan daha yukarı taşıyacaktır.';
+    return 'Düzenli deneme analizi yaparak yanlış çıkan konularını Günlük Çalışma Programı listene eklemen netlerini istikrarlı şekilde yukarı taşıyacaktır.';
   };
-
-  const snapshotTasks = getDailySnapshotTasks();
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -284,9 +220,9 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Summary KPI Metrics */}
+      {/* Summary KPI Metrics (100% real data from localStorage) */}
       <div className={`grid grid-cols-1 sm:grid-cols-2 ${isTytOnly ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4`}>
-        {/* Metric 1 */}
+        {/* Metric 1: Daily Progress */}
         <Card className="p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-medium text-slate-400">Günlük İlerleme</span>
@@ -296,17 +232,26 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div>
             <div className="flex items-baseline justify-between mb-1.5">
-              <span className="text-2xl font-bold text-white">4 / 6</span>
-              <span className="text-xs font-semibold text-brand-purpleLight">%66</span>
+              <span className="text-2xl font-bold text-white">
+                {completedTasksCount} / {visibleTasks.length}
+              </span>
+              <span className="text-xs font-semibold text-brand-purpleLight">
+                %{taskCompletionPercent}
+              </span>
             </div>
             <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-              <div className="bg-brand-purple h-full rounded-full w-2/3" />
+              <div
+                className="bg-brand-purple h-full rounded-full transition-all duration-300"
+                style={{ width: `${taskCompletionPercent}%` }}
+              />
             </div>
-            <p className="text-[11px] text-slate-500 mt-2">Tamamlanan görevler</p>
+            <p className="text-[11px] text-slate-500 mt-2">
+              {visibleTasks.length === 0 ? 'Henüz görev eklenmedi' : 'Tamamlanan görevler'}
+            </p>
           </div>
         </Card>
 
-        {/* Metric 2 */}
+        {/* Metric 2: Latest TYT Net */}
         <Card className="p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-medium text-slate-400">Son TYT Neti</span>
@@ -316,19 +261,29 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div>
             <div className="flex items-baseline gap-2 mb-1.5">
-              <span className="text-2xl font-bold text-white">92.75</span>
-              <span className="text-xs font-medium text-emerald-400 flex items-center">
-                +4.5 net
+              <span className="text-2xl font-bold text-white">
+                {latestTyt ? latestTyt.scores.total.toFixed(2) : '0.00'}
               </span>
+              {tytDiff !== null && (
+                <span
+                  className={`text-xs font-medium flex items-center ${
+                    tytDiff >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                  }`}
+                >
+                  {tytDiff >= 0 ? `+${tytDiff}` : tytDiff} net
+                </span>
+              )}
             </div>
             <div className="flex items-center justify-between text-[11px] text-slate-500">
-              <span>Hedef: 105.00</span>
-              <span className="text-slate-400 font-medium">3D Simülasyon</span>
+              <span>Hedef: {tytTargetNet.toFixed(2)}</span>
+              <span className="text-slate-400 font-medium truncate max-w-[120px]">
+                {latestTyt ? latestTyt.name : 'Veri yok'}
+              </span>
             </div>
           </div>
         </Card>
 
-        {/* Metric 3: AYT Net (Only shown if NOT TYT-only) */}
+        {/* Metric 3: Latest AYT Net (Only shown if NOT TYT-only) */}
         {!isTytOnly && (
           <Card className="p-5 flex flex-col justify-between">
             <div className="flex items-center justify-between mb-3">
@@ -339,20 +294,30 @@ export const DashboardPage: React.FC = () => {
             </div>
             <div>
               <div className="flex items-baseline gap-2 mb-1.5">
-                <span className="text-2xl font-bold text-white">64.50</span>
-                <span className="text-xs font-medium text-emerald-400 flex items-center">
-                  +2.25 net
+                <span className="text-2xl font-bold text-white">
+                  {latestAyt ? latestAyt.scores.total.toFixed(2) : '0.00'}
                 </span>
+                {aytDiff !== null && (
+                  <span
+                    className={`text-xs font-medium flex items-center ${
+                      aytDiff >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                    }`}
+                  >
+                    {aytDiff >= 0 ? `+${aytDiff}` : aytDiff} net
+                  </span>
+                )}
               </div>
               <div className="flex items-center justify-between text-[11px] text-slate-500">
-                <span>Hedef: 75.00</span>
-                <span className="text-slate-400 font-medium">{studyField} Alanı</span>
+                <span>Hedef: {aytTargetNet.toFixed(2)}</span>
+                <span className="text-slate-400 font-medium truncate max-w-[120px]">
+                  {latestAyt ? latestAyt.name : `${studyField} · Veri yok`}
+                </span>
               </div>
             </div>
           </Card>
         )}
 
-        {/* Metric 4 */}
+        {/* Metric 4: Real Study Streak & Weekly Total */}
         <Card className="p-5 flex flex-col justify-between">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-medium text-slate-400">Çalışma Serisi</span>
@@ -362,15 +327,19 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div>
             <div className="flex items-baseline gap-2 mb-1.5">
-              <span className="text-2xl font-bold text-white">14 Gün</span>
-              <Badge variant="amber">Aralıksız</Badge>
+              <span className="text-2xl font-bold text-white">{streakDays} Gün</span>
+              <Badge variant={streakDays > 0 ? 'amber' : 'slate'}>
+                {streakDays > 0 ? 'Aralıksız' : 'Hazır'}
+              </Badge>
             </div>
-            <p className="text-[11px] text-slate-500">Bu hafta toplam: 38 saat</p>
+            <p className="text-[11px] text-slate-500">
+              Bu hafta toplam: {weeklyHours} saat {weeklyRemainingMins} dk
+            </p>
           </div>
         </Card>
       </div>
 
-      {/* Two Column Layout: Daily tasks preview & Recent exam snapshot */}
+      {/* Two Column Layout: Daily tasks preview & Coaching card */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Today's Tasks Snapshot */}
         <div className="lg:col-span-2 space-y-4">
@@ -379,7 +348,7 @@ export const DashboardPage: React.FC = () => {
               <div className="w-2 h-2 rounded-full bg-brand-purple" />
               <h2 className="text-lg font-semibold text-white">Bugünün Çalışma Listesi</h2>
             </div>
-            <Link 
+            <Link
               to="/program"
               className="text-xs font-medium text-brand-purpleLight hover:text-white flex items-center gap-1 transition"
             >
@@ -388,42 +357,64 @@ export const DashboardPage: React.FC = () => {
             </Link>
           </div>
 
-          <Card className="p-0 divide-y divide-slate-800/80 overflow-hidden">
-            {snapshotTasks.map((task, idx) => (
-              <div 
-                key={idx}
-                className="px-5 py-3.5 flex items-center justify-between hover:bg-slate-800/30 transition"
+          {visibleTasks.length === 0 ? (
+            <Card className="text-center py-10 px-6 border-dashed border-slate-800">
+              <CheckSquare className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+              <p className="text-sm font-medium text-slate-300">
+                Henüz bir görev eklemedin. Yeni bir görev ekleyerek çalışmaya başla!
+              </p>
+              <Link
+                to="/program"
+                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-brand-purple/20 hover:bg-brand-purple text-brand-purpleLight hover:text-white border border-brand-purple/30 text-xs font-semibold transition"
               >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-5 h-5 rounded-md flex items-center justify-center border transition ${
-                    task.status 
-                      ? 'bg-brand-purple border-brand-purple text-white' 
-                      : 'border-slate-700 bg-slate-900/50'
-                  }`}>
-                    {task.status && <CheckSquare className="w-3.5 h-3.5" />}
+                <Plus className="w-3.5 h-3.5" />
+                <span>Görev Ekle</span>
+              </Link>
+            </Card>
+          ) : (
+            <Card className="p-0 divide-y divide-slate-800/80 overflow-hidden">
+              {visibleTasks.slice(0, 5).map((task) => (
+                <div
+                  key={task.id}
+                  className="px-5 py-3.5 flex items-center justify-between hover:bg-slate-800/30 transition"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className={`w-5 h-5 rounded-md flex items-center justify-center border transition ${
+                        task.completed
+                          ? 'bg-brand-purple border-brand-purple text-white'
+                          : 'border-slate-700 bg-slate-900/50'
+                      }`}
+                    >
+                      {task.completed && <CheckSquare className="w-3.5 h-3.5" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p
+                        className={`text-sm font-medium truncate ${
+                          task.completed ? 'text-slate-400 line-through' : 'text-slate-200'
+                        }`}
+                      >
+                        {task.topic}
+                      </p>
+                      <span className="text-xs text-brand-purpleLight/80">
+                        {task.subject} ({task.category})
+                      </span>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className={`text-sm font-medium truncate ${
-                      task.status ? 'text-slate-400 line-through' : 'text-slate-200'
-                    }`}>
-                      {task.topic}
-                    </p>
-                    <span className="text-xs text-brand-purpleLight/80">{task.subject}</span>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-3 shrink-0 ml-4">
-                  <span className="text-xs text-slate-500 flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {task.duration}
-                  </span>
-                  <Badge variant={task.status ? 'emerald' : 'slate'}>
-                    {task.status ? 'Bitti' : 'Kaldı'}
-                  </Badge>
+                  <div className="flex items-center gap-3 shrink-0 ml-4">
+                    <span className="text-xs text-slate-500 flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {task.durationMinutes ?? 30} dk
+                    </span>
+                    <Badge variant={task.completed ? 'emerald' : 'slate'}>
+                      {task.completed ? 'Bitti' : 'Kaldı'}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </Card>
+              ))}
+            </Card>
+          )}
         </div>
 
         {/* Right 1 Col: Quick Coaching & Target Card */}
@@ -445,10 +436,15 @@ export const DashboardPage: React.FC = () => {
               <div className="space-y-1">
                 <div className="flex justify-between text-xs">
                   <span className="text-slate-400">TYT Net Hedefi</span>
-                  <span className="text-white font-medium">92.75 / 105.00</span>
+                  <span className="text-white font-medium">
+                    {latestTyt ? latestTyt.scores.total.toFixed(2) : '0.00'} / {tytTargetNet.toFixed(2)}
+                  </span>
                 </div>
                 <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full" style={{ width: '88%' }} />
+                  <div
+                    className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${tytProgressPercent}%` }}
+                  />
                 </div>
               </div>
 
@@ -456,10 +452,15 @@ export const DashboardPage: React.FC = () => {
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs">
                     <span className="text-slate-400">AYT ({studyField}) Net Hedefi</span>
-                    <span className="text-white font-medium">64.50 / 75.00</span>
+                    <span className="text-white font-medium">
+                      {latestAyt ? latestAyt.scores.total.toFixed(2) : '0.00'} / {aytTargetNet.toFixed(2)}
+                    </span>
                   </div>
                   <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                    <div className="bg-gradient-to-r from-brand-purple to-purple-400 h-full rounded-full" style={{ width: '86%' }} />
+                    <div
+                      className="bg-gradient-to-r from-brand-purple to-purple-400 h-full rounded-full transition-all duration-300"
+                      style={{ width: `${aytProgressPercent}%` }}
+                    />
                   </div>
                 </div>
               )}

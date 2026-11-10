@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Play, 
   Pause, 
@@ -24,19 +24,23 @@ import {
   ReferenceLine
 } from 'recharts';
 import { Card } from '../../components/common/Card';
+import { useAuth } from '../../context/AuthContext';
+import {
+  STORAGE_PREFIXES,
+  EMPTY_STUDY_STATS,
+  getLocalDateKey,
+  getUserStorageKey,
+  readLocalStorageJson,
+  writeLocalStorageJson
+} from '../../utils/storage';
+import type { StudyStatsData } from '../../utils/storage';
 
-// 7-day realistic mock study data (Pazartesi -> Pazar)
-const WEEKLY_STUDY_DATA = [
-  { day: 'Pzt', hours: 4.5, target: 5.0, sessions: 5 },
-  { day: 'Sal', hours: 5.2, target: 5.0, sessions: 6 },
-  { day: 'Çar', hours: 6.0, target: 5.5, sessions: 7 },
-  { day: 'Per', hours: 4.8, target: 5.0, sessions: 5 },
-  { day: 'Cum', hours: 6.5, target: 6.0, sessions: 8 },
-  { day: 'Cmt', hours: 7.2, target: 7.0, sessions: 9 },
-  { day: 'Paz (Bugün)', hours: 4.25, target: 6.0, sessions: 5 },
-];
+const TURKISH_WEEKDAYS = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 
 export const StudyTimerPage: React.FC = () => {
+  const { user } = useAuth();
+  const storageKey = getUserStorageKey(STORAGE_PREFIXES.STUDY_STATS, user?.id);
+
   // Preset or custom durations (in minutes)
   const [workDuration, setWorkDuration] = useState<number>(50);
   const [breakDuration, setBreakDuration] = useState<number>(10);
@@ -51,17 +55,10 @@ export const StudyTimerPage: React.FC = () => {
   const [remainingSeconds, setRemainingSeconds] = useState<number>(50 * 60);
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
-  
-  // Today's total study minutes (Stored in LocalStorage, initial: 255 mins = 4h 15m)
-  const [todayStudyMinutes, setTodayStudyMinutes] = useState<number>(() => {
-    const saved = localStorage.getItem('yks_today_study_minutes');
-    return saved ? parseInt(saved, 10) : 255;
-  });
 
-  const [completedSessionsCount, setCompletedSessionsCount] = useState<number>(() => {
-    const saved = localStorage.getItem('yks_today_sessions_count');
-    return saved ? parseInt(saved, 10) : 5;
-  });
+  // Real persisted study statistics (initialized empty/zero and loaded via useEffect)
+  const [studyStats, setStudyStats] = useState<StudyStatsData>(EMPTY_STUDY_STATS);
+  const [loadedKey, setLoadedKey] = useState<string | null>(null);
 
   // Modal / Notification when timer completes
   const [completionAlert, setCompletionAlert] = useState<{
@@ -73,11 +70,22 @@ export const StudyTimerPage: React.FC = () => {
   // Critical background protection timestamp reference
   const targetTimestampRef = useRef<number | null>(null);
 
-  // Sync today's study minutes to localStorage
+  // Check localStorage on mount / user change
   useEffect(() => {
-    localStorage.setItem('yks_today_study_minutes', todayStudyMinutes.toString());
-    localStorage.setItem('yks_today_sessions_count', completedSessionsCount.toString());
-  }, [todayStudyMinutes, completedSessionsCount]);
+    const stored = readLocalStorageJson<StudyStatsData>(storageKey, EMPTY_STUDY_STATS);
+    setStudyStats({
+      dailyMinutes: stored?.dailyMinutes ?? {},
+      dailySessions: stored?.dailySessions ?? {}
+    });
+    setLoadedKey(storageKey);
+  }, [storageKey]);
+
+  // Persist stats changes after initial load
+  useEffect(() => {
+    if (loadedKey === storageKey) {
+      writeLocalStorageJson(storageKey, studyStats);
+    }
+  }, [studyStats, storageKey, loadedKey]);
 
   // Clean Audio Chime via Web Audio API (No external file needed, background-safe)
   const playAlarmSound = () => {
@@ -125,10 +133,18 @@ export const StudyTimerPage: React.FC = () => {
             playAlarmSound();
 
             if (mode === 'work') {
-              // Add completed duration to today's study total
-              setTodayStudyMinutes(prev => prev + workDuration);
-              setCompletedSessionsCount(prev => prev + 1);
-              
+              const activeDateKey = getLocalDateKey();
+              setStudyStats((prev) => ({
+                dailyMinutes: {
+                  ...prev.dailyMinutes,
+                  [activeDateKey]: (prev.dailyMinutes[activeDateKey] ?? 0) + workDuration
+                },
+                dailySessions: {
+                  ...prev.dailySessions,
+                  [activeDateKey]: (prev.dailySessions[activeDateKey] ?? 0) + 1
+                }
+              }));
+
               setCompletionAlert({
                 show: true,
                 title: 'Çalışma Seansı Başarıyla Tamamlandı! 🎉',
@@ -220,9 +236,34 @@ export const StudyTimerPage: React.FC = () => {
   const seconds = remainingSeconds % 60;
   const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
+  // Real today's stats derived from persisted studyStats
+  const todayKey = getLocalDateKey();
+  const todayStudyMinutes = studyStats.dailyMinutes[todayKey] ?? 0;
+  const completedSessionsCount = studyStats.dailySessions[todayKey] ?? 0;
+
   // Format today's total study time
   const todayHours = Math.floor(todayStudyMinutes / 60);
   const todayRemainingMins = todayStudyMinutes % 60;
+
+  // Build real 7-day study chart data from studyStats (last 7 days ending today)
+  const weeklyChartData = useMemo(() => {
+    const items = [];
+    for (let offset = 6; offset >= 0; offset--) {
+      const d = new Date();
+      d.setDate(d.getDate() - offset);
+      const dateKey = getLocalDateKey(d);
+      const mins = studyStats.dailyMinutes[dateKey] ?? 0;
+      const sessions = studyStats.dailySessions[dateKey] ?? 0;
+      const label = TURKISH_WEEKDAYS[d.getDay()];
+      items.push({
+        day: offset === 0 ? `${label} (Bugün)` : label,
+        hours: parseFloat((mins / 60).toFixed(2)),
+        minutes: mins,
+        sessions
+      });
+    }
+    return items;
+  }, [studyStats]);
 
   return (
     <div className="space-y-8 animate-fadeIn">
@@ -590,7 +631,7 @@ export const StudyTimerPage: React.FC = () => {
 
         <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={WEEKLY_STUDY_DATA} margin={{ top: 10, right: 15, left: -20, bottom: 5 }}>
+            <LineChart data={weeklyChartData} margin={{ top: 10, right: 15, left: -20, bottom: 5 }}>
               <defs>
                 <linearGradient id="purpleTimerGlow" x1="0" y1="0" x2="1" y2="0">
                   <stop offset="0%" stopColor="#38BDF8" />
@@ -615,7 +656,7 @@ export const StudyTimerPage: React.FC = () => {
                 fontSize={11}
                 tickLine={false}
                 axisLine={{ stroke: '#1E293B' }}
-                domain={[0, 9]}
+                domain={[0, (dataMax: number) => Math.max(6, Math.ceil(dataMax + 1))]}
                 dx={-5}
                 unit="s"
               />
@@ -627,7 +668,9 @@ export const StudyTimerPage: React.FC = () => {
                     return (
                       <div className="rounded-xl bg-[#090D16]/95 backdrop-blur-md border border-slate-700/80 p-3 shadow-xl text-xs space-y-1">
                         <p className="font-semibold text-white">{d.day}</p>
-                        <p className="text-brand-purpleLight font-bold text-sm">{d.hours} Saat</p>
+                        <p className="text-brand-purpleLight font-bold text-sm">
+                          {d.hours} Saat <span className="text-xs font-normal text-slate-400">({d.minutes} dk)</span>
+                        </p>
                         <p className="text-slate-400 text-[11px]">{d.sessions} Odak Seansı</p>
                       </div>
                     );
