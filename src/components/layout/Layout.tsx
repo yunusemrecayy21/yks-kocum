@@ -8,7 +8,7 @@ export const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-dark-bg text-dark-text flex">
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-dark-bg dark:text-dark-text flex transition-colors duration-300">
       {/* Sidebar */}
       <Sidebar 
         isOpen={sidebarOpen} 

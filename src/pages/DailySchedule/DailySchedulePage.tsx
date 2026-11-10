@@ -178,11 +178,11 @@ export const DailySchedulePage: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2.5">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
             <CheckSquare className="w-7 h-7 text-brand-purple" />
             Günlük Çalışma Programım
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
             Günün hedeflerini planla, konularını tamamladıkça işaretle ve ritmini koru.
           </p>
         </div>
@@ -199,8 +199,8 @@ export const DailySchedulePage: React.FC = () => {
 
       {/* Error Alert */}
       {errorMsg && (
-        <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3.5 flex items-center gap-2.5 text-xs text-rose-300">
-          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+        <div className="rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 p-3.5 flex items-center gap-2.5 text-xs text-rose-700 dark:text-rose-300">
+          <AlertTriangle className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
@@ -209,26 +209,26 @@ export const DailySchedulePage: React.FC = () => {
       <Card className="p-5">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-purple/20 to-blue-500/20 border border-brand-purple/30 flex items-center justify-center font-bold text-xl text-brand-purpleLight">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-purple/15 dark:from-brand-purple/20 to-blue-500/15 dark:to-blue-500/20 border border-brand-purple/30 flex items-center justify-center font-bold text-xl text-brand-purple dark:text-brand-purpleLight">
               %{progressPercent}
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white">Bugünün Tamamlanma Oranı</h3>
-              <p className="text-xs text-slate-400">
-                Toplam <span className="text-white font-medium">{visibleTasks.length}</span> görevden{' '}
-                <span className="text-emerald-400 font-medium">{completedCount}</span> tanesi bitti.
+              <h3 className="text-base font-semibold text-slate-900 dark:text-white">Bugünün Tamamlanma Oranı</h3>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Toplam <span className="text-slate-900 dark:text-white font-medium">{visibleTasks.length}</span> görevden{' '}
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">{completedCount}</span> tanesi bitti.
               </p>
             </div>
           </div>
 
           {/* Quick Filter Tabs */}
-          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-900 border border-slate-800 self-start md:self-auto">
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 self-start md:self-auto">
             <button
               onClick={() => setFilter('all')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                 filter === 'all'
-                  ? 'bg-brand-purple text-white'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-brand-purple text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
               Tümü ({visibleTasks.length})
@@ -237,8 +237,8 @@ export const DailySchedulePage: React.FC = () => {
               onClick={() => setFilter('pending')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                 filter === 'pending'
-                  ? 'bg-brand-purple text-white'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-brand-purple text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
               Yapılacaklar ({visibleTasks.length - completedCount})
@@ -247,8 +247,8 @@ export const DailySchedulePage: React.FC = () => {
               onClick={() => setFilter('completed')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                 filter === 'completed'
-                  ? 'bg-brand-purple text-white'
-                  : 'text-slate-400 hover:text-white'
+                  ? 'bg-brand-purple text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
               }`}
             >
               Bitenler ({completedCount})
@@ -257,7 +257,7 @@ export const DailySchedulePage: React.FC = () => {
         </div>
 
         {/* Progress Bar Line */}
-        <div className="w-full bg-slate-800 rounded-full h-2 mt-4 overflow-hidden">
+        <div className="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 mt-4 overflow-hidden">
           <div
             className="bg-gradient-to-r from-brand-purple to-indigo-500 h-full rounded-full transition-all duration-500"
             style={{ width: `${progressPercent}%` }}
@@ -267,17 +267,17 @@ export const DailySchedulePage: React.FC = () => {
 
       {/* Add Task Collapsible Panel */}
       {isAdding && (
-        <Card className="p-6 border-brand-purple/40 bg-slate-900/90 shadow-glow-purple/20">
+        <Card className="p-6 border-brand-purple/40 bg-white dark:bg-slate-900/90 shadow-glow-purple/10 dark:shadow-glow-purple/20">
           <form onSubmit={handleAddTask} className="space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-brand-purpleLight" />
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-brand-purple dark:text-brand-purpleLight" />
                 Programa Yeni Çalışma Ekle
               </h3>
               <button
                 type="button"
                 onClick={() => setIsAdding(false)}
-                className="text-xs text-slate-400 hover:text-white"
+                className="text-xs text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
               >
                 Vazgeç
               </button>
@@ -285,13 +285,13 @@ export const DailySchedulePage: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
                   Ders
                 </label>
                 <select
                   value={subject}
                   onChange={(e) => setSubject(e.target.value as Subject)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-purple transition"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-brand-purple transition"
                 >
                   {SUBJECT_LIST.map((sub) => (
                     <option key={sub} value={sub}>
@@ -302,13 +302,13 @@ export const DailySchedulePage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
                   Kategori
                 </label>
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value as StudyTask['category'])}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-purple transition"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-brand-purple transition"
                 >
                   <option value="TYT">TYT</option>
                   {!isTytOnly && <option value="AYT">AYT</option>}
@@ -318,7 +318,7 @@ export const DailySchedulePage: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
                   Tahmini Süre (Dakika)
                 </label>
                 <input
@@ -327,12 +327,12 @@ export const DailySchedulePage: React.FC = () => {
                   step="5"
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-purple transition"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-brand-purple transition"
                 />
               </div>
 
               <div className="sm:col-span-2 lg:col-span-1">
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
                   Konu / Hedef Başlığı
                 </label>
                 <input
@@ -341,7 +341,7 @@ export const DailySchedulePage: React.FC = () => {
                   placeholder="ör. Trigonometri 50 Soru"
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-purple transition"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-brand-purple transition"
                 />
               </div>
             </div>
@@ -350,7 +350,7 @@ export const DailySchedulePage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsAdding(false)}
-                className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
+                className="px-4 py-2 text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
               >
                 İptal
               </button>
@@ -371,20 +371,20 @@ export const DailySchedulePage: React.FC = () => {
       <div className="space-y-3">
         {isLoading ? (
           <Card className="py-16 flex flex-col items-center justify-center text-center">
-            <Loader2 className="w-8 h-8 text-brand-purpleLight animate-spin mb-3" />
-            <p className="text-sm font-medium text-slate-300">
+            <Loader2 className="w-8 h-8 text-brand-purple dark:text-brand-purpleLight animate-spin mb-3" />
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
               Çalışma programınız Firestore'dan yükleniyor...
             </p>
           </Card>
         ) : visibleTasks.length === 0 ? (
-          <Card className="relative overflow-hidden text-center py-14 px-6 border-dashed border-slate-700/80 bg-[#0f172a]/60">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-purple/20 to-indigo-500/20 border border-brand-purple/30 flex items-center justify-center mx-auto mb-4 shadow-glow-purple">
-              <Sparkles className="w-8 h-8 text-brand-purpleLight" />
+          <Card className="relative overflow-hidden text-center py-14 px-6 border-dashed border-slate-300 dark:border-slate-700/80 bg-slate-50/80 dark:bg-[#0f172a]/60">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-purple/15 dark:from-brand-purple/20 to-indigo-500/15 dark:to-indigo-500/20 border border-brand-purple/30 flex items-center justify-center mx-auto mb-4 shadow-glow-purple">
+              <Sparkles className="w-8 h-8 text-brand-purple dark:text-brand-purpleLight" />
             </div>
-            <h3 className="text-lg font-bold text-white tracking-tight">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
               Çalışma Listen Şu An Boş
             </h3>
-            <p className="text-sm text-slate-400 mt-1.5 max-w-md mx-auto leading-relaxed">
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1.5 max-w-md mx-auto leading-relaxed">
               Henüz bir görev eklemedin. Yeni bir görev ekleyerek çalışmaya başla!
             </p>
             {!isAdding && (
@@ -399,9 +399,9 @@ export const DailySchedulePage: React.FC = () => {
           </Card>
         ) : filteredTasks.length === 0 ? (
           <Card className="text-center py-12">
-            <CheckSquare className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <h3 className="text-base font-semibold text-white">Bu filtrede görev bulunamadı</h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <CheckSquare className="w-12 h-12 text-slate-400 dark:text-slate-600 mx-auto mb-3" />
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">Bu filtrede görev bulunamadı</h3>
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
               {filter === 'completed'
                 ? 'Henüz tamamlanmış bir görevin yok. Görevlerini işaretledikçe burada görünecek!'
                 : 'Harika! Bekleyen tüm görevlerini tamamladın.'}
@@ -411,39 +411,39 @@ export const DailySchedulePage: React.FC = () => {
           filteredTasks.map((task) => (
             <Card
               key={task.id}
-              className={`p-4 transition-all duration-200 hover:border-slate-700 ${
-                task.completed ? 'bg-slate-900/40 opacity-75' : 'bg-[#0f172a]/90'
+              className={`p-4 transition-all duration-200 hover:border-slate-300 dark:hover:border-slate-700 ${
+                task.completed ? 'bg-slate-100/80 dark:bg-slate-900/40 opacity-75' : 'bg-white dark:bg-[#0f172a]/90'
               }`}
             >
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5 min-w-0">
                   <button
                     onClick={() => toggleTask(task)}
-                    className="shrink-0 text-slate-400 hover:text-brand-purpleLight transition"
+                    className="shrink-0 text-slate-400 hover:text-brand-purple dark:hover:text-brand-purpleLight transition"
                     aria-label="Görevi tamamla"
                   >
                     {task.completed ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400 fill-emerald-400/20" />
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 fill-emerald-500/15 dark:fill-emerald-400/20" />
                     ) : (
-                      <Circle className="w-5 h-5 text-slate-600 hover:text-brand-purple" />
+                      <Circle className="w-5 h-5 text-slate-400 dark:text-slate-600 hover:text-brand-purple" />
                     )}
                   </button>
 
                   <div className="min-w-0">
                     <p
                       className={`text-sm font-semibold truncate ${
-                        task.completed ? 'line-through text-slate-500' : 'text-slate-100'
+                        task.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-slate-100'
                       }`}
                     >
                       {task.topic}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-brand-purpleLight font-medium">
+                      <span className="text-xs text-brand-purple dark:text-brand-purpleLight font-medium">
                         {task.subject}
                       </span>
-                      <span className="text-slate-600">•</span>
-                      <span className="text-xs text-slate-400 flex items-center gap-1">
-                        <Clock className="w-3 h-3 text-slate-500" />
+                      <span className="text-slate-400 dark:text-slate-600">•</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-400 dark:text-slate-500" />
                         {task.durationMinutes} dk
                       </span>
                     </div>
@@ -465,7 +465,7 @@ export const DailySchedulePage: React.FC = () => {
 
                   <button
                     onClick={() => deleteTask(task.id)}
-                    className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                    className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition"
                     title="Görevi Sil"
                   >
                     <Trash2 className="w-4 h-4" />

@@ -24,6 +24,7 @@ import {
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { getLocalDateKey } from '../../utils/date';
 import {
   fetchExams,
@@ -83,27 +84,27 @@ const CustomChartTooltip: React.FC<CustomTooltipProps> = ({ active, payload }) =
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (
-      <div className="rounded-2xl bg-[#090D16]/95 backdrop-blur-md border border-slate-700/80 p-4 shadow-2xl text-xs space-y-2 min-w-[190px]">
-        <div className="border-b border-slate-800 pb-1.5">
-          <p className="font-semibold text-white tracking-tight">{data.fullName}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
-            <Calendar className="w-3 h-3 text-brand-purpleLight" />
+      <div className="rounded-2xl bg-white/95 dark:bg-[#090D16]/95 backdrop-blur-md border border-slate-200 dark:border-slate-700/80 p-4 shadow-2xl text-xs space-y-2 min-w-[190px]">
+        <div className="border-b border-slate-200 dark:border-slate-800 pb-1.5">
+          <p className="font-semibold text-slate-900 dark:text-white tracking-tight">{data.fullName}</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 flex items-center gap-1">
+            <Calendar className="w-3 h-3 text-brand-purple dark:text-brand-purpleLight" />
             {data.date}
           </p>
         </div>
 
         <div className="flex items-center justify-between pt-0.5">
-          <span className="text-slate-300 font-medium">Toplam Net:</span>
-          <span className="text-base font-bold text-brand-purpleLight">
+          <span className="text-slate-600 dark:text-slate-300 font-medium">Toplam Net:</span>
+          <span className="text-base font-bold text-brand-purple dark:text-brand-purpleLight">
             {data.total} Net
           </span>
         </div>
 
         {data.breakdown.length > 0 && (
-          <div className="grid grid-cols-2 gap-1.5 pt-1 text-[11px] text-slate-400 border-t border-slate-800/80">
+          <div className="grid grid-cols-2 gap-1.5 pt-1 text-[11px] text-slate-600 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/80">
             {data.breakdown.map((item) => (
               <div key={item.label}>
-                {item.label}: <span className="text-white font-medium">{item.value}</span>
+                {item.label}: <span className="text-slate-900 dark:text-white font-medium">{item.value}</span>
               </div>
             ))}
           </div>
@@ -116,6 +117,9 @@ const CustomChartTooltip: React.FC<CustomTooltipProps> = ({ active, payload }) =
 
 export const ExamScoresPage: React.FC = () => {
   const { user, onboardingProfile, isTytOnly } = useAuth();
+  const { isDark } = useTheme();
+  const chartGridStroke = isDark ? '#1E293B' : '#E2E8F0';
+  const chartDotFill = isDark ? '#090D16' : '#FFFFFF';
   const userId = user?.uid;
   const studyField = onboardingProfile?.studyField ?? 'Sayısal';
   const aytField: Exclude<StudyField, 'Sadece TYT'> =
@@ -318,11 +322,11 @@ export const ExamScoresPage: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2.5">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
             <BarChart3 className="w-7 h-7 text-brand-purple" />
             Deneme Netlerim
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
             {isTytOnly
               ? 'TYT deneme sonuçlarını kaydet, ders bazında gelişimini ve net analizini izle.'
               : `TYT ve AYT (${aytField}) deneme sonuçlarını kaydet, ders bazında gelişimini ve net analizini izle.`}
@@ -332,17 +336,17 @@ export const ExamScoresPage: React.FC = () => {
         {/* Tab Selection + New Exam Button */}
         <div className="flex items-center gap-3">
           {isTytOnly ? (
-            <div className="px-4 py-2 rounded-xl bg-brand-purple/15 border border-brand-purple/30 text-brand-purpleLight text-xs font-semibold">
+            <div className="px-4 py-2 rounded-xl bg-brand-purple/10 dark:bg-brand-purple/15 border border-brand-purple/30 text-brand-purple dark:text-brand-purpleLight text-xs font-semibold">
               TYT Denemeleri
             </div>
           ) : (
-            <div className="p-1 rounded-xl bg-slate-900 border border-slate-800 flex items-center">
+            <div className="p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center">
               <button
                 onClick={() => setActiveTab('TYT')}
                 className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
                   activeTab === 'TYT'
                     ? 'bg-brand-purple text-white shadow-md shadow-brand-purple/20'
-                    : 'text-slate-400 hover:text-white'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                 }`}
               >
                 TYT Denemeleri
@@ -352,7 +356,7 @@ export const ExamScoresPage: React.FC = () => {
                 className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
                   activeTab === 'AYT'
                     ? 'bg-brand-purple text-white shadow-md shadow-brand-purple/20'
-                    : 'text-slate-400 hover:text-white'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                 }`}
               >
                 AYT ({aytField})
@@ -373,8 +377,8 @@ export const ExamScoresPage: React.FC = () => {
 
       {/* Error Alert */}
       {errorMsg && (
-        <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3.5 flex items-center gap-2.5 text-xs text-rose-300">
-          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+        <div className="rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 p-3.5 flex items-center gap-2.5 text-xs text-rose-700 dark:text-rose-300">
+          <AlertTriangle className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
@@ -383,58 +387,58 @@ export const ExamScoresPage: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="p-5 flex items-center justify-between">
           <div>
-            <span className="text-xs font-medium text-slate-400">Son Girilen Net</span>
-            <div className="text-2xl font-bold text-white mt-1">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Son Girilen Net</span>
+            <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
               {isLoading ? '...' : latestNet}
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">{activeTab} Sonuç</p>
           </div>
-          <div className="p-3 rounded-xl bg-brand-purple/10 text-brand-purpleLight border border-brand-purple/20">
+          <div className="p-3 rounded-xl bg-brand-purple/10 text-brand-purple dark:text-brand-purpleLight border border-brand-purple/20">
             <TrendingUp className="w-5 h-5" />
           </div>
         </Card>
 
         <Card className="p-5 flex items-center justify-between">
           <div>
-            <span className="text-xs font-medium text-slate-400">Ortalama Net</span>
-            <div className="text-2xl font-bold text-white mt-1">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Ortalama Net</span>
+            <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
               {isLoading ? '...' : averageNet}
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">
               {currentTabExams.length} Deneme Ortalaması
             </p>
           </div>
-          <div className="p-3 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+          <div className="p-3 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
             <BarChart3 className="w-5 h-5" />
           </div>
         </Card>
 
         <Card className="p-5 flex items-center justify-between">
           <div>
-            <span className="text-xs font-medium text-slate-400">En Yüksek Net (Rekor)</span>
-            <div className="text-2xl font-bold text-emerald-400 mt-1">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">En Yüksek Net (Rekor)</span>
+            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
               {isLoading ? '...' : highestNet}
             </div>
             <p className="text-[11px] text-slate-500 mt-0.5">Kişisel Rekor</p>
           </div>
-          <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
             <Award className="w-5 h-5" />
           </div>
         </Card>
       </div>
 
       {/* Sleek Line Chart for Net Progress */}
-      <Card className="p-6 border-slate-800/90 bg-[#0f172a]/70">
+      <Card className="p-6 border-slate-200 dark:border-slate-800/90 bg-white dark:bg-[#0f172a]/70">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-brand-purple/10 text-brand-purpleLight border border-brand-purple/20">
+            <div className="p-2 rounded-xl bg-brand-purple/10 text-brand-purple dark:text-brand-purpleLight border border-brand-purple/20">
               <LineChartIcon className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white tracking-tight">
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white tracking-tight">
                 {activeTab === 'AYT' ? `AYT (${aytField})` : 'TYT'} Net Artış ve Gelişim Trendi
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-600 dark:text-slate-400">
                 Kronolojik olarak kaydedilen denemelerin net seyri
               </p>
             </div>
@@ -442,12 +446,12 @@ export const ExamScoresPage: React.FC = () => {
 
           {!isLoading && chartData.length > 1 && (
             <div className="flex items-center gap-2 self-start sm:self-auto">
-              <span className="text-xs text-slate-400">Net Gelişimi:</span>
+              <span className="text-xs text-slate-600 dark:text-slate-400">Net Gelişimi:</span>
               <span
                 className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg border ${
                   isPositiveGrowth
-                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                    : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
                 }`}
               >
                 <TrendingUp className="w-3.5 h-3.5" />
@@ -459,17 +463,17 @@ export const ExamScoresPage: React.FC = () => {
 
         {isLoading ? (
           <div className="h-64 flex flex-col items-center justify-center text-center">
-            <Loader2 className="w-8 h-8 text-brand-purpleLight animate-spin mb-3" />
-            <p className="text-sm font-medium text-slate-300">
+            <Loader2 className="w-8 h-8 text-brand-purple dark:text-brand-purpleLight animate-spin mb-3" />
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
               Deneme verileri Firestore'dan yükleniyor...
             </p>
           </div>
         ) : chartData.length === 0 ? (
-          <div className="h-64 flex flex-col items-center justify-center text-center px-4 border border-dashed border-slate-800 rounded-2xl bg-slate-950/30">
-            <div className="w-12 h-12 rounded-2xl bg-brand-purple/10 border border-brand-purple/25 flex items-center justify-center mb-3 text-brand-purpleLight">
+          <div className="h-64 flex flex-col items-center justify-center text-center px-4 border border-dashed border-slate-300 dark:border-slate-800 rounded-2xl bg-slate-50 dark:bg-slate-950/30">
+            <div className="w-12 h-12 rounded-2xl bg-brand-purple/10 border border-brand-purple/25 flex items-center justify-center mb-3 text-brand-purple dark:text-brand-purpleLight">
               <LineChartIcon className="w-6 h-6" />
             </div>
-            <p className="text-sm font-medium text-slate-300 max-w-md leading-relaxed">
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-300 max-w-md leading-relaxed">
               Henüz deneme verisi girmedin. İlk denemeni ekleyerek yükselişini izle.
             </p>
           </div>
@@ -485,14 +489,14 @@ export const ExamScoresPage: React.FC = () => {
                   </linearGradient>
                 </defs>
 
-                <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
 
                 <XAxis
                   dataKey="name"
                   stroke="#64748B"
                   fontSize={11}
                   tickLine={false}
-                  axisLine={{ stroke: '#1E293B' }}
+                  axisLine={{ stroke: chartGridStroke }}
                   dy={10}
                 />
 
@@ -500,7 +504,7 @@ export const ExamScoresPage: React.FC = () => {
                   stroke="#64748B"
                   fontSize={11}
                   tickLine={false}
-                  axisLine={{ stroke: '#1E293B' }}
+                  axisLine={{ stroke: chartGridStroke }}
                   domain={[
                     (dataMin: number) => Math.max(0, Math.floor(dataMin - 5)),
                     (dataMax: number) => Math.ceil(dataMax + 5)
@@ -527,7 +531,7 @@ export const ExamScoresPage: React.FC = () => {
                   strokeWidth={3}
                   dot={{
                     r: 4,
-                    fill: '#090D16',
+                    fill: chartDotFill,
                     stroke: '#A855F7',
                     strokeWidth: 2
                   }}
@@ -547,17 +551,17 @@ export const ExamScoresPage: React.FC = () => {
 
       {/* Add New Exam Collapsible Form */}
       {isAdding && (
-        <Card className="p-6 border-brand-purple/40 bg-slate-900/90 shadow-glow-purple/20">
+        <Card className="p-6 border-brand-purple/40 bg-white dark:bg-slate-900/90 shadow-glow-purple/10 dark:shadow-glow-purple/20">
           <form onSubmit={handleAddExam} className="space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-brand-purpleLight" />
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-brand-purple dark:text-brand-purpleLight" />
                 Yeni {activeTab === 'AYT' ? `AYT (${aytField})` : 'TYT'} Deneme Sonucu Kaydet
               </h3>
               <button
                 type="button"
                 onClick={() => setIsAdding(false)}
-                className="text-xs text-slate-400 hover:text-white"
+                className="text-xs text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
               >
                 Kapat
               </button>
@@ -565,7 +569,7 @@ export const ExamScoresPage: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
                   Deneme Adı / Başlığı *
                 </label>
                 <input
@@ -574,12 +578,12 @@ export const ExamScoresPage: React.FC = () => {
                   placeholder="ör. 3D Türkiye Geneli Deneme 2"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-purple transition"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-brand-purple transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
                   Yayın / Kurum
                 </label>
                 <input
@@ -587,26 +591,26 @@ export const ExamScoresPage: React.FC = () => {
                   placeholder="ör. 3D, Özdebir, Bilgi Sarmal"
                   value={publisher}
                   onChange={(e) => setPublisher(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-purple transition"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-brand-purple transition"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5">
                   Tarih
                 </label>
                 <input
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-brand-purple transition"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-brand-purple transition"
                 />
               </div>
             </div>
 
             {/* Dynamically Filtered Subject Net Inputs */}
             <div className="pt-2">
-              <div className="text-xs font-medium text-slate-300 mb-2">
+              <div className="text-xs font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Ders Netleri ({activeTab === 'AYT' ? `${aytField} Alanı` : 'TYT'}):
               </div>
               <div
@@ -623,9 +627,9 @@ export const ExamScoresPage: React.FC = () => {
                 {activeScoreFields.map((field) => (
                   <div
                     key={field.key}
-                    className="p-3 rounded-xl bg-slate-950/80 border border-slate-800"
+                    className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800"
                   >
-                    <label className="block text-xs text-slate-400 mb-1">{field.label}</label>
+                    <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">{field.label}</label>
                     <input
                       type="number"
                       step="0.25"
@@ -634,7 +638,7 @@ export const ExamScoresPage: React.FC = () => {
                       placeholder="0.00"
                       value={scoreInputs[field.key] ?? ''}
                       onChange={(e) => handleScoreInputChange(field.key, e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-white focus:outline-none focus:border-brand-purple"
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700/80 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-brand-purple"
                     />
                     <span className="text-[10px] text-slate-500 mt-1 block">
                       Max {field.max}
@@ -645,10 +649,10 @@ export const ExamScoresPage: React.FC = () => {
             </div>
 
             {/* Total Net preview & submit */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-slate-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-400">Hesaplanan Toplam Net:</span>
-                <span className="text-xl font-bold text-brand-purpleLight">
+                <span className="text-xs text-slate-600 dark:text-slate-400">Hesaplanan Toplam Net:</span>
+                <span className="text-xl font-bold text-brand-purple dark:text-brand-purpleLight">
                   {previewTotal} Net
                 </span>
               </div>
@@ -657,7 +661,7 @@ export const ExamScoresPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsAdding(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white"
+                  className="px-4 py-2 text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
                 >
                   Vazgeç
                 </button>
@@ -685,16 +689,16 @@ export const ExamScoresPage: React.FC = () => {
 
         {isLoading ? (
           <Card className="py-12 flex flex-col items-center justify-center text-center">
-            <Loader2 className="w-7 h-7 text-brand-purpleLight animate-spin mb-2" />
-            <p className="text-xs text-slate-400">Kayıtlar yükleniyor...</p>
+            <Loader2 className="w-7 h-7 text-brand-purple dark:text-brand-purpleLight animate-spin mb-2" />
+            <p className="text-xs text-slate-500 dark:text-slate-400">Kayıtlar yükleniyor...</p>
           </Card>
         ) : currentTabExams.length === 0 ? (
-          <Card className="text-center py-12 border-dashed border-slate-800">
-            <BarChart3 className="w-12 h-12 text-slate-600 mx-auto mb-3" />
-            <h3 className="text-base font-semibold text-white">
+          <Card className="text-center py-12 border-dashed border-slate-300 dark:border-slate-800">
+            <BarChart3 className="w-12 h-12 text-slate-400 dark:text-slate-600 mx-auto mb-3" />
+            <h3 className="text-base font-semibold text-slate-900 dark:text-white">
               Henüz {activeTab} denemesi girilmedi
             </h3>
-            <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-md mx-auto">
               "Deneme Ekle" butonuna basarak ilk deneme netini kaydedebilirsin.
             </p>
           </Card>
@@ -704,13 +708,13 @@ export const ExamScoresPage: React.FC = () => {
             return (
               <Card
                 key={exam.id}
-                className="p-5 hover:border-slate-700 transition-all duration-200"
+                className="p-5 hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200"
               >
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   {/* Exam Title & Details */}
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2.5">
-                      <h3 className="text-base font-semibold text-white tracking-tight">
+                      <h3 className="text-base font-semibold text-slate-900 dark:text-white tracking-tight">
                         {exam.name}
                       </h3>
                       <Badge variant={exam.examType === 'TYT' ? 'midnight' : 'purple'}>
@@ -718,14 +722,14 @@ export const ExamScoresPage: React.FC = () => {
                         {exam.field ? ` · ${exam.field}` : ''}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-3 text-xs text-slate-400">
+                    <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
                       <span className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                        <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                         {exam.date}
                       </span>
                       {exam.publisher && (
                         <>
-                          <span className="text-slate-600">•</span>
+                          <span className="text-slate-400 dark:text-slate-600">•</span>
                           <span>{exam.publisher}</span>
                         </>
                       )}
@@ -737,21 +741,21 @@ export const ExamScoresPage: React.FC = () => {
                     {breakdown.map((item) => (
                       <div
                         key={item.label}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-center min-w-[54px]"
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-center min-w-[54px]"
                       >
-                        <span className="text-[10px] text-slate-400 block font-medium">
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">
                           {item.label}
                         </span>
-                        <span className="text-xs font-bold text-white">{item.value}</span>
+                        <span className="text-xs font-bold text-slate-900 dark:text-white">{item.value}</span>
                       </div>
                     ))}
 
                     {/* Total Net Card */}
-                    <div className="px-4 py-2 rounded-xl bg-gradient-to-r from-brand-purple/20 to-indigo-600/20 border border-brand-purple/40 text-center min-w-[90px]">
-                      <span className="text-[10px] text-brand-purpleLight block font-semibold uppercase">
+                    <div className="px-4 py-2 rounded-xl bg-gradient-to-r from-brand-purple/15 dark:from-brand-purple/20 to-indigo-600/15 dark:to-indigo-600/20 border border-brand-purple/30 dark:border-brand-purple/40 text-center min-w-[90px]">
+                      <span className="text-[10px] text-brand-purple dark:text-brand-purpleLight block font-semibold uppercase">
                         Toplam Net
                       </span>
-                      <span className="text-base font-extrabold text-white">
+                      <span className="text-base font-extrabold text-slate-900 dark:text-white">
                         {exam.scores.total}
                       </span>
                     </div>
@@ -759,7 +763,7 @@ export const ExamScoresPage: React.FC = () => {
                     {/* Delete button */}
                     <button
                       onClick={() => deleteExam(exam.id)}
-                      className="p-2 rounded-xl text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                      className="p-2 rounded-xl text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition"
                       title="Denemeyi Sil"
                     >
                       <Trash2 className="w-4 h-4" />

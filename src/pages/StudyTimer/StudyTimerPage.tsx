@@ -27,6 +27,7 @@ import {
 } from 'recharts';
 import { Card } from '../../components/common/Card';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { getLocalDateKey } from '../../utils/date';
 import {
   fetchStudyStats,
@@ -39,7 +40,10 @@ const TURKISH_WEEKDAYS = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 
 export const StudyTimerPage: React.FC = () => {
   const { user } = useAuth();
+  const { isDark } = useTheme();
   const userId = user?.uid;
+  const chartGridStroke = isDark ? '#1E293B' : '#E2E8F0';
+  const chartDotFill = isDark ? '#090D16' : '#FFFFFF';
 
   // Preset or custom durations (in minutes)
   const [workDuration, setWorkDuration] = useState<number>(50);
@@ -321,11 +325,11 @@ export const StudyTimerPage: React.FC = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2.5">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
             <Clock className="w-7 h-7 text-brand-purple" />
             Çalışma Sayacı & Odaklanma
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
             Geri sayım sayacıyla ders çalış, sekme arka plandayken bile süren aksın ve haftalık verimini analiz et.
           </p>
         </div>
@@ -335,39 +339,39 @@ export const StudyTimerPage: React.FC = () => {
           onClick={() => setSoundEnabled(!soundEnabled)}
           className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition self-start sm:self-auto ${
             soundEnabled 
-              ? 'bg-slate-900 text-brand-purpleLight border-brand-purple/30' 
-              : 'bg-slate-900 text-slate-500 border-slate-800'
+              ? 'bg-brand-purple/10 dark:bg-slate-900 text-brand-purple dark:text-brand-purpleLight border-brand-purple/30' 
+              : 'bg-white dark:bg-slate-900 text-slate-500 border-slate-200 dark:border-slate-800'
           }`}
           title={soundEnabled ? 'Zil Sesi Açık' : 'Zil Sesi Kapalı'}
         >
-          {soundEnabled ? <Volume2 className="w-4 h-4 text-brand-purpleLight" /> : <VolumeX className="w-4 h-4" />}
+          {soundEnabled ? <Volume2 className="w-4 h-4 text-brand-purple dark:text-brand-purpleLight" /> : <VolumeX className="w-4 h-4" />}
           <span>{soundEnabled ? 'Zil Aktif' : 'Zil Sessizde'}</span>
         </button>
       </div>
 
       {/* Firestore Stats Error Alert */}
       {statsErrorMsg && (
-        <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3.5 flex items-center gap-2.5 text-xs text-rose-300">
-          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+        <div className="rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 p-3.5 flex items-center gap-2.5 text-xs text-rose-700 dark:text-rose-300">
+          <AlertTriangle className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0" />
           <span>{statsErrorMsg}</span>
         </div>
       )}
 
       {/* Completion Modal / Notification Banner */}
       {completionAlert?.show && (
-        <div className="relative rounded-2xl bg-gradient-to-r from-brand-purple/20 via-indigo-600/20 to-purple-900/20 border border-brand-purple/40 p-5 shadow-glow-purple flex items-start justify-between gap-4 animate-fadeIn">
+        <div className="relative rounded-2xl bg-gradient-to-r from-brand-purple/10 via-indigo-500/10 to-purple-500/10 dark:from-brand-purple/20 dark:via-indigo-600/20 dark:to-purple-900/20 border border-brand-purple/30 dark:border-brand-purple/40 p-5 shadow-glow-purple flex items-start justify-between gap-4 animate-fadeIn">
           <div className="flex items-start gap-3">
             <div className="p-2.5 rounded-xl bg-brand-purple text-white shadow-lg">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">{completionAlert.title}</h3>
-              <p className="text-xs text-slate-300 mt-1 leading-relaxed">{completionAlert.message}</p>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">{completionAlert.title}</h3>
+              <p className="text-xs text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">{completionAlert.message}</p>
             </div>
           </div>
           <button
             onClick={() => setCompletionAlert(null)}
-            className="text-xs text-slate-400 hover:text-white px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700"
+            className="text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
           >
             Kapat
           </button>
@@ -375,18 +379,18 @@ export const StudyTimerPage: React.FC = () => {
       )}
 
       {/* Main Focus Timer Card with Circular Progress Ring */}
-      <Card className="p-8 sm:p-10 border-slate-800/90 bg-[#0f172a]/90 relative overflow-hidden flex flex-col items-center justify-center text-center">
+      <Card className="p-8 sm:p-10 border-slate-200 dark:border-slate-800/90 bg-white dark:bg-[#0f172a]/90 relative overflow-hidden flex flex-col items-center justify-center text-center">
         {/* Subtle Ambient Glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-brand-purple/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Mode Selector Tabs */}
-        <div className="relative z-10 p-1.5 rounded-2xl bg-slate-950/80 border border-slate-800/80 flex items-center gap-1 mb-8">
+        <div className="relative z-10 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 flex items-center gap-1 mb-8">
           <button
             onClick={() => switchMode('work')}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
               mode === 'work'
                 ? 'bg-gradient-to-r from-brand-purple to-indigo-600 text-white shadow-md shadow-brand-purple/25'
-                : 'text-slate-400 hover:text-white'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
             <Flame className="w-4 h-4 text-amber-400 fill-amber-400/20" />
@@ -398,7 +402,7 @@ export const StudyTimerPage: React.FC = () => {
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
               mode === 'break'
                 ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md shadow-blue-500/25'
-                : 'text-slate-400 hover:text-white'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
             <Coffee className="w-4 h-4 text-cyan-400" />
@@ -431,7 +435,7 @@ export const StudyTimerPage: React.FC = () => {
               cx="140"
               cy="140"
               r={radius}
-              stroke="#1E293B"
+              stroke={isDark ? '#1E293B' : '#E2E8F0'}
               strokeWidth="10"
               fill="transparent"
             />
@@ -458,18 +462,18 @@ export const StudyTimerPage: React.FC = () => {
           <div className="absolute flex flex-col items-center justify-center space-y-2">
             <span className={`text-[11px] font-bold tracking-widest uppercase px-3 py-1 rounded-full border ${
               mode === 'work'
-                ? 'bg-brand-purple/15 text-brand-purpleLight border-brand-purple/30'
-                : 'bg-blue-500/15 text-blue-400 border-blue-500/30'
+                ? 'bg-brand-purple/10 dark:bg-brand-purple/15 text-brand-purple dark:text-brand-purpleLight border-brand-purple/30'
+                : 'bg-blue-500/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30'
             }`}>
               {mode === 'work' ? (isRunning ? 'Odaklanılıyor...' : 'Çalışmaya Hazır') : 'Mola Veriliyor'}
             </span>
 
             {/* Big Modern Digital Monospace Clock */}
-            <div className="font-mono text-5xl sm:text-6xl font-extrabold text-white tracking-wider drop-shadow-md">
+            <div className="font-mono text-5xl sm:text-6xl font-extrabold text-slate-900 dark:text-white tracking-wider drop-shadow-sm dark:drop-shadow-md">
               {formattedTime}
             </div>
 
-            <p className="text-xs text-slate-400 font-medium">
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
               {mode === 'work' ? 'Hedef: Tam Konsantrasyon' : 'Rahatla & Dinlen'}
             </p>
           </div>
@@ -497,7 +501,7 @@ export const StudyTimerPage: React.FC = () => {
 
           <button
             onClick={handleReset}
-            className="p-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition"
+            className="p-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-slate-300 dark:hover:text-white dark:border-slate-800 transition"
             title="Sayacı Sıfırla"
           >
             <RotateCcw className="w-5 h-5" />
@@ -505,10 +509,10 @@ export const StudyTimerPage: React.FC = () => {
         </div>
 
         {/* Duration Customization / Preset Pills */}
-        <div className="mt-8 pt-6 border-t border-slate-800/80 w-full max-w-xl">
-          <div className="flex items-center justify-between mb-3 text-xs text-slate-400 font-medium">
+        <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800/80 w-full max-w-xl">
+          <div className="flex items-center justify-between mb-3 text-xs text-slate-500 dark:text-slate-400 font-medium">
             <span className="flex items-center gap-1.5">
-              <Sliders className="w-3.5 h-3.5 text-brand-purpleLight" />
+              <Sliders className="w-3.5 h-3.5 text-brand-purple dark:text-brand-purpleLight" />
               Hızlı Süre Ayarları
             </span>
             <span>Özel Değer Seçin</span>
@@ -519,8 +523,8 @@ export const StudyTimerPage: React.FC = () => {
               onClick={() => applyPreset(25, 5)}
               className={`p-2.5 rounded-xl border text-xs font-semibold transition ${
                 workDuration === 25 && breakDuration === 5
-                  ? 'bg-brand-purple/15 text-brand-purpleLight border-brand-purple/40 shadow-sm'
-                  : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:text-white'
+                  ? 'bg-brand-purple/10 dark:bg-brand-purple/15 text-brand-purple dark:text-brand-purpleLight border-brand-purple/40 shadow-sm'
+                  : 'bg-slate-100 dark:bg-slate-950/60 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Klasik 25 / 5 dk
@@ -529,8 +533,8 @@ export const StudyTimerPage: React.FC = () => {
               onClick={() => applyPreset(50, 10)}
               className={`p-2.5 rounded-xl border text-xs font-semibold transition ${
                 workDuration === 50 && breakDuration === 10
-                  ? 'bg-brand-purple/15 text-brand-purpleLight border-brand-purple/40 shadow-sm'
-                  : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:text-white'
+                  ? 'bg-brand-purple/10 dark:bg-brand-purple/15 text-brand-purple dark:text-brand-purpleLight border-brand-purple/40 shadow-sm'
+                  : 'bg-slate-100 dark:bg-slate-950/60 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Derin Odak 50 / 10 dk
@@ -539,8 +543,8 @@ export const StudyTimerPage: React.FC = () => {
               onClick={() => applyPreset(60, 15)}
               className={`p-2.5 rounded-xl border text-xs font-semibold transition ${
                 workDuration === 60 && breakDuration === 15
-                  ? 'bg-brand-purple/15 text-brand-purpleLight border-brand-purple/40 shadow-sm'
-                  : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:text-white'
+                  ? 'bg-brand-purple/10 dark:bg-brand-purple/15 text-brand-purple dark:text-brand-purpleLight border-brand-purple/40 shadow-sm'
+                  : 'bg-slate-100 dark:bg-slate-950/60 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               Maraton 60 / 15 dk
@@ -548,9 +552,9 @@ export const StudyTimerPage: React.FC = () => {
           </div>
 
           {/* Custom Duration Setter */}
-          <form onSubmit={handleApplyCustom} className="mt-5 pt-5 border-t border-slate-800/60">
-            <div className="flex items-center justify-between mb-3 text-xs text-slate-400 font-medium">
-              <span className="text-slate-300 font-semibold">Özel Süre Belirle</span>
+          <form onSubmit={handleApplyCustom} className="mt-5 pt-5 border-t border-slate-200 dark:border-slate-800/60">
+            <div className="flex items-center justify-between mb-3 text-xs text-slate-500 dark:text-slate-400 font-medium">
+              <span className="text-slate-700 dark:text-slate-300 font-semibold">Özel Süre Belirle</span>
               <span className="text-[11px] text-slate-500">Kendi çalışma & mola süreni gir</span>
             </div>
 
@@ -558,7 +562,7 @@ export const StudyTimerPage: React.FC = () => {
               <div className="flex-1 text-left">
                 <label
                   htmlFor="custom-work-input"
-                  className="block text-[11px] font-medium text-slate-400 mb-1.5"
+                  className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1.5"
                 >
                   Çalışma (dk)
                 </label>
@@ -569,14 +573,14 @@ export const StudyTimerPage: React.FC = () => {
                   max={240}
                   value={customWorkInput}
                   onChange={e => setCustomWorkInput(e.target.value)}
-                  className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white text-center focus:outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/25 focus:shadow-[0_0_18px_rgba(139,92,246,0.28)] transition-all"
+                  className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 dark:text-white text-center focus:outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/25 focus:shadow-[0_0_18px_rgba(139,92,246,0.28)] transition-all"
                 />
               </div>
 
               <div className="flex-1 text-left">
                 <label
                   htmlFor="custom-break-input"
-                  className="block text-[11px] font-medium text-slate-400 mb-1.5"
+                  className="block text-[11px] font-medium text-slate-600 dark:text-slate-400 mb-1.5"
                 >
                   Mola (dk)
                 </label>
@@ -587,7 +591,7 @@ export const StudyTimerPage: React.FC = () => {
                   max={120}
                   value={customBreakInput}
                   onChange={e => setCustomBreakInput(e.target.value)}
-                  className="w-full bg-slate-950/80 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-white text-center focus:outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/25 focus:shadow-[0_0_18px_rgba(139,92,246,0.28)] transition-all"
+                  className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-sm font-semibold text-slate-900 dark:text-white text-center focus:outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/25 focus:shadow-[0_0_18px_rgba(139,92,246,0.28)] transition-all"
                 />
               </div>
 
@@ -595,7 +599,7 @@ export const StudyTimerPage: React.FC = () => {
                 type="submit"
                 className={`inline-flex items-center justify-center gap-1.5 px-6 py-2.5 rounded-xl text-xs font-semibold transition-all h-[42px] shrink-0 ${
                   customApplied
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-md shadow-emerald-500/15'
+                    ? 'bg-emerald-500/15 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/40 shadow-md shadow-emerald-500/15'
                     : 'bg-brand-purple/90 hover:bg-brand-purple text-white border border-brand-purple/50 shadow-md shadow-brand-purple/20 hover:shadow-brand-purple/35'
                 }`}
               >
@@ -614,45 +618,45 @@ export const StudyTimerPage: React.FC = () => {
       </Card>
 
       {/* Today's Total Study Time Banner (Attention Grabbing Card) */}
-      <Card className="p-6 bg-gradient-to-r from-[#11192e] via-[#161c3d] to-[#0f172a] border-slate-800">
+      <Card className="p-6 bg-gradient-to-r from-indigo-50 via-purple-50 to-slate-100 dark:from-[#11192e] dark:via-[#161c3d] dark:to-[#0f172a] border-slate-200 dark:border-slate-800">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-purple to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-brand-purple/20 shrink-0">
               <Clock className="w-7 h-7" />
             </div>
             <div>
-              <span className="text-xs font-semibold text-brand-purpleLight uppercase tracking-wider block">
+              <span className="text-xs font-semibold text-brand-purple dark:text-brand-purpleLight uppercase tracking-wider block">
                 Bugün Toplam Çalışılan Süre
               </span>
-              <div className="text-3xl font-extrabold text-white tracking-tight mt-0.5">
+              <div className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-0.5">
                 {isLoadingStats ? (
-                  <span className="inline-flex items-center gap-2 text-lg text-slate-300 font-semibold">
-                    <Loader2 className="w-5 h-5 animate-spin text-brand-purpleLight" />
+                  <span className="inline-flex items-center gap-2 text-lg text-slate-600 dark:text-slate-300 font-semibold">
+                    <Loader2 className="w-5 h-5 animate-spin text-brand-purple dark:text-brand-purpleLight" />
                     Yükleniyor...
                   </span>
                 ) : (
                   `${todayHours} Saat ${todayRemainingMins} Dakika`
                 )}
               </div>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                 Her tamamlanan çalışma seansı Firestore istatistiklerine otomatik eklenir.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-6 sm:gap-8 border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-8">
+          <div className="flex items-center gap-6 sm:gap-8 border-t md:border-t-0 md:border-l border-slate-200 dark:border-slate-800 pt-4 md:pt-0 md:pl-8">
             <div>
-              <span className="text-xs text-slate-400 block">Tamamlanan Seans</span>
-              <span className="text-xl font-bold text-emerald-400">
+              <span className="text-xs text-slate-600 dark:text-slate-400 block">Tamamlanan Seans</span>
+              <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
                 {isLoadingStats ? '...' : `${completedSessionsCount} Seans`}
               </span>
               <span className="text-[11px] text-slate-500 block mt-0.5">Bugün</span>
             </div>
 
             <div>
-              <span className="text-xs text-slate-400 block">Günlük Hedef</span>
-              <span className="text-xl font-bold text-white">6 Saat</span>
-              <span className="text-[11px] text-brand-purpleLight block mt-0.5">
+              <span className="text-xs text-slate-600 dark:text-slate-400 block">Günlük Hedef</span>
+              <span className="text-xl font-bold text-slate-900 dark:text-white">6 Saat</span>
+              <span className="text-[11px] text-brand-purple dark:text-brand-purpleLight block mt-0.5">
                 %{isLoadingStats ? 0 : Math.min(100, Math.round((todayStudyMinutes / 360) * 100))} Tamamlandı
               </span>
             </div>
@@ -660,7 +664,7 @@ export const StudyTimerPage: React.FC = () => {
         </div>
 
         {/* Goal Progress Bar */}
-        <div className="w-full bg-slate-800/80 rounded-full h-2 mt-5 overflow-hidden">
+        <div className="w-full bg-slate-200 dark:bg-slate-800/80 rounded-full h-2 mt-5 overflow-hidden">
           <div
             className="bg-gradient-to-r from-brand-purple via-indigo-500 to-cyan-400 h-full rounded-full transition-all duration-500"
             style={{ width: `${Math.min(100, (todayStudyMinutes / 360) * 100)}%` }}
@@ -669,24 +673,24 @@ export const StudyTimerPage: React.FC = () => {
       </Card>
 
       {/* Weekly Study Time Line Chart */}
-      <Card className="p-6 border-slate-800/90 bg-[#0f172a]/70">
+      <Card className="p-6 border-slate-200 dark:border-slate-800/90 bg-white dark:bg-[#0f172a]/70">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
               <BarChart2 className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white tracking-tight">
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white tracking-tight">
                 Son 1 Haftalık Çalışma Süresi Dağılımı
               </h2>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-slate-600 dark:text-slate-400">
                 Gün gün odaklanma süreleri (Saat cinsinden)
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3 self-start sm:self-auto text-xs">
-            <div className="flex items-center gap-1.5 text-slate-300">
+            <div className="flex items-center gap-1.5 text-slate-700 dark:text-slate-300">
               <span className="w-3 h-0.5 bg-brand-purple" />
               <span>Çalışma (Saat)</span>
             </div>
@@ -699,8 +703,8 @@ export const StudyTimerPage: React.FC = () => {
 
         {isLoadingStats ? (
           <div className="h-72 flex flex-col items-center justify-center text-center">
-            <Loader2 className="w-8 h-8 text-brand-purpleLight animate-spin mb-3" />
-            <p className="text-sm font-medium text-slate-300">
+            <Loader2 className="w-8 h-8 text-brand-purple dark:text-brand-purpleLight animate-spin mb-3" />
+            <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
               Haftalık çalışma verileri Firestore'dan yükleniyor...
             </p>
           </div>
@@ -716,14 +720,14 @@ export const StudyTimerPage: React.FC = () => {
                 </linearGradient>
               </defs>
 
-              <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartGridStroke} vertical={false} />
 
               <XAxis 
                 dataKey="day" 
                 stroke="#64748B" 
                 fontSize={11}
                 tickLine={false}
-                axisLine={{ stroke: '#1E293B' }}
+                axisLine={{ stroke: chartGridStroke }}
                 dy={10}
               />
 
@@ -731,7 +735,7 @@ export const StudyTimerPage: React.FC = () => {
                 stroke="#64748B" 
                 fontSize={11}
                 tickLine={false}
-                axisLine={{ stroke: '#1E293B' }}
+                axisLine={{ stroke: chartGridStroke }}
                 domain={[0, (dataMax: number) => Math.max(6, Math.ceil(dataMax + 1))]}
                 dx={-5}
                 unit="s"
@@ -742,12 +746,12 @@ export const StudyTimerPage: React.FC = () => {
                   if (active && payload && payload.length) {
                     const d = payload[0].payload;
                     return (
-                      <div className="rounded-xl bg-[#090D16]/95 backdrop-blur-md border border-slate-700/80 p-3 shadow-xl text-xs space-y-1">
-                        <p className="font-semibold text-white">{d.day}</p>
-                        <p className="text-brand-purpleLight font-bold text-sm">
-                          {d.hours} Saat <span className="text-xs font-normal text-slate-400">({d.minutes} dk)</span>
+                      <div className="rounded-xl bg-white/95 dark:bg-[#090D16]/95 backdrop-blur-md border border-slate-200 dark:border-slate-700/80 p-3 shadow-xl text-xs space-y-1">
+                        <p className="font-semibold text-slate-900 dark:text-white">{d.day}</p>
+                        <p className="text-brand-purple dark:text-brand-purpleLight font-bold text-sm">
+                          {d.hours} Saat <span className="text-xs font-normal text-slate-500 dark:text-slate-400">({d.minutes} dk)</span>
                         </p>
-                        <p className="text-slate-400 text-[11px]">{d.sessions} Odak Seansı</p>
+                        <p className="text-slate-500 dark:text-slate-400 text-[11px]">{d.sessions} Odak Seansı</p>
                       </div>
                     );
                   }
@@ -766,7 +770,7 @@ export const StudyTimerPage: React.FC = () => {
                 strokeWidth={3}
                 dot={{
                   r: 4,
-                  fill: '#090D16',
+                  fill: chartDotFill,
                   stroke: '#8B5CF6',
                   strokeWidth: 2
                 }}

@@ -40,20 +40,20 @@ export const AiCoachChat: React.FC<AiCoachChatProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#0f172a]/90 backdrop-blur-xl">
+    <div className="flex flex-col h-full bg-white/95 dark:bg-[#0f172a]/90 backdrop-blur-xl transition-colors duration-300">
       {/* Chat Header */}
-      <div className="px-4 py-3.5 border-b border-slate-800/80 flex items-center justify-between gap-2 bg-slate-900/60 shrink-0">
+      <div className="px-4 py-3.5 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between gap-2 bg-slate-50/90 dark:bg-slate-900/60 shrink-0">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-purple to-indigo-500 flex items-center justify-center text-white shadow-md shadow-brand-purple/25 shrink-0">
             <Bot className="w-5 h-5" />
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h3 className="text-sm font-bold text-white truncate">Yapay Zeka Koçu</h3>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">Yapay Zeka Koçu</h3>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse shrink-0" />
             </div>
-            <p className="text-[11px] text-slate-400 truncate flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-brand-purpleLight" />
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-brand-purple dark:text-brand-purpleLight" />
               <span>YKS Strateji & Motivasyon Asistanı</span>
             </p>
           </div>
@@ -66,7 +66,7 @@ export const AiCoachChat: React.FC<AiCoachChatProps> = ({
             disabled={isLoading}
             title="Sohbeti Temizle"
             aria-label="Sohbeti Temizle"
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 disabled:opacity-50 transition"
+            className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-slate-800/80 disabled:opacity-50 transition"
           >
             <RotateCcw className="w-4 h-4" />
           </button>
@@ -90,7 +90,7 @@ export const AiCoachChat: React.FC<AiCoachChatProps> = ({
                   <div className="rounded-2xl rounded-tr-sm bg-gradient-to-r from-brand-purple to-indigo-600 text-white px-4 py-2.5 text-sm leading-relaxed shadow-md shadow-brand-purple/20 whitespace-pre-wrap">
                     {msg.text}
                   </div>
-                  <span className="block text-[10px] text-slate-500 text-right pr-1">
+                  <span className="block text-[10px] text-slate-400 dark:text-slate-500 text-right pr-1">
                     {msg.timestamp}
                   </span>
                 </div>
@@ -103,8 +103,8 @@ export const AiCoachChat: React.FC<AiCoachChatProps> = ({
               <div
                 className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5 border ${
                   msg.isError
-                    ? 'bg-rose-500/15 border-rose-500/30 text-rose-400'
-                    : 'bg-brand-purple/15 border-brand-purple/30 text-brand-purpleLight'
+                    ? 'bg-rose-50 dark:bg-rose-500/15 border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400'
+                    : 'bg-purple-50 dark:bg-brand-purple/15 border-purple-200 dark:border-brand-purple/30 text-brand-purple dark:text-brand-purpleLight'
                 }`}
               >
                 {msg.isError ? <AlertTriangle className="w-3.5 h-3.5" /> : <Bot className="w-4 h-4" />}
@@ -114,13 +114,13 @@ export const AiCoachChat: React.FC<AiCoachChatProps> = ({
                 <div
                   className={`rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap border ${
                     msg.isError
-                      ? 'bg-rose-500/10 border-rose-500/30 text-rose-200 text-xs'
-                      : 'bg-slate-900/90 border-slate-800/90 text-slate-200'
+                      ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-200 text-xs'
+                      : 'bg-slate-100 dark:bg-slate-900/90 border-slate-200 dark:border-slate-800/90 text-slate-800 dark:text-slate-200'
                   }`}
                 >
                   {msg.text}
                 </div>
-                <span className="block text-[10px] text-slate-500 pl-1">
+                <span className="block text-[10px] text-slate-400 dark:text-slate-500 pl-1">
                   {msg.timestamp}
                 </span>
               </div>
@@ -136,7 +136,7 @@ export const AiCoachChat: React.FC<AiCoachChatProps> = ({
                 key={prompt}
                 type="button"
                 onClick={() => handleStarterClick(prompt)}
-                className="text-left text-[11px] font-medium px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-brand-purple/20 text-slate-300 hover:text-brand-purpleLight border border-slate-800 hover:border-brand-purple/40 transition-all"
+                className="text-left text-[11px] font-medium px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900/80 hover:bg-purple-50 dark:hover:bg-brand-purple/20 text-slate-700 dark:text-slate-300 hover:text-brand-purple dark:hover:text-brand-purpleLight border border-slate-200 dark:border-slate-800 hover:border-purple-300 dark:hover:border-brand-purple/40 transition-all"
               >
                 {prompt}
               </button>
@@ -147,25 +147,25 @@ export const AiCoachChat: React.FC<AiCoachChatProps> = ({
         {/* Loading Indicator ("Koç düşünüyor...") */}
         {isLoading && (
           <div className="flex items-start gap-2.5 justify-start animate-fadeIn">
-            <div className="w-7 h-7 rounded-xl bg-brand-purple/15 border border-brand-purple/30 flex items-center justify-center text-brand-purpleLight shrink-0 mt-0.5">
+            <div className="w-7 h-7 rounded-xl bg-purple-50 dark:bg-brand-purple/15 border border-purple-200 dark:border-brand-purple/30 flex items-center justify-center text-brand-purple dark:text-brand-purpleLight shrink-0 mt-0.5">
               <Bot className="w-4 h-4" />
             </div>
-            <div className="rounded-2xl rounded-tl-sm bg-slate-900/90 border border-slate-800/90 px-4 py-3 flex items-center gap-2.5">
+            <div className="rounded-2xl rounded-tl-sm bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800/90 px-4 py-3 flex items-center gap-2.5">
               <div className="flex items-center gap-1">
                 <span
-                  className="w-1.5 h-1.5 rounded-full bg-brand-purpleLight animate-bounce"
+                  className="w-1.5 h-1.5 rounded-full bg-brand-purple dark:bg-brand-purpleLight animate-bounce"
                   style={{ animationDelay: '0ms' }}
                 />
                 <span
-                  className="w-1.5 h-1.5 rounded-full bg-brand-purpleLight animate-bounce"
+                  className="w-1.5 h-1.5 rounded-full bg-brand-purple dark:bg-brand-purpleLight animate-bounce"
                   style={{ animationDelay: '150ms' }}
                 />
                 <span
-                  className="w-1.5 h-1.5 rounded-full bg-brand-purpleLight animate-bounce"
+                  className="w-1.5 h-1.5 rounded-full bg-brand-purple dark:bg-brand-purpleLight animate-bounce"
                   style={{ animationDelay: '300ms' }}
                 />
               </div>
-              <span className="text-xs font-medium text-slate-400 animate-pulse">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 animate-pulse">
                 Koç düşünüyor...
               </span>
             </div>
@@ -178,7 +178,7 @@ export const AiCoachChat: React.FC<AiCoachChatProps> = ({
       {/* Message Input & Send Form */}
       <form
         onSubmit={handleSubmit}
-        className="p-3.5 border-t border-slate-800/80 bg-slate-950/70 flex items-center gap-2.5 shrink-0"
+        className="p-3.5 border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-50/90 dark:bg-slate-950/70 flex items-center gap-2.5 shrink-0"
       >
         <input
           type="text"
@@ -186,7 +186,7 @@ export const AiCoachChat: React.FC<AiCoachChatProps> = ({
           onChange={(e) => setInputValue(e.target.value)}
           disabled={isLoading}
           placeholder="Koçuna YKS ile ilgili bir soru sor..."
-          className="flex-1 bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/20 disabled:opacity-60 transition-all"
+          className="flex-1 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/20 disabled:opacity-60 transition-all"
         />
         <button
           type="submit"

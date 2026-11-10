@@ -8,8 +8,18 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <title>YKS Koçum | Öğrenci Gelişim Takip Paneli</title>
+    <script>
+      try {
+        var t = localStorage.getItem('yks_theme');
+        if (t === 'light') {
+          document.documentElement.classList.remove('dark');
+        } else {
+          document.documentElement.classList.add('dark');
+        }
+      } catch (e) {}
+    </script>
   </head>
-  <body class="bg-dark-bg text-dark-text antialiased selection:bg-brand-purple/30 selection:text-white">
+  <body class="bg-slate-50 text-slate-900 dark:bg-dark-bg dark:text-dark-text antialiased selection:bg-brand-purple/30 selection:text-brand-purpleDark dark:selection:text-white transition-colors duration-300">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

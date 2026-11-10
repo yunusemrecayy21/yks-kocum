@@ -17,7 +17,7 @@ export const FloatingAiCoach: React.FC = () => {
     <>
       {/* Floating Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[390px] h-[520px] max-h-[76vh] rounded-3xl border border-slate-800/90 shadow-2xl shadow-black/75 overflow-hidden animate-fadeIn">
+        <div className="fixed bottom-24 right-4 sm:right-6 z-50 w-[calc(100vw-2rem)] sm:w-[390px] h-[520px] max-h-[76vh] rounded-3xl bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800/90 shadow-2xl shadow-slate-300/60 dark:shadow-black/75 overflow-hidden animate-fadeIn">
           <AiCoachChat
             compact
             headerExtra={
@@ -54,10 +54,10 @@ export const FloatingAiCoach: React.FC = () => {
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         aria-label={isOpen ? 'Yapay Zeka Koçunu Kapat' : 'Yapay Zeka Koçunu Aç'}
-        className={`fixed bottom-5 right-5 z-40 group inline-flex items-center gap-2.5 px-4 py-3.5 rounded-2xl font-semibold text-sm text-white shadow-2xl transition-all duration-300 ${
+        className={`fixed bottom-5 right-5 z-40 group inline-flex items-center gap-2.5 px-4 py-3.5 rounded-2xl font-semibold text-sm shadow-2xl transition-all duration-300 ${
           isOpen
-            ? 'bg-slate-800 hover:bg-slate-700 border border-slate-700'
-            : 'bg-gradient-to-r from-brand-purple to-indigo-600 hover:from-brand-purpleHover hover:to-indigo-500 shadow-glow-purple hover:scale-105 active:scale-95'
+            ? 'bg-white text-slate-800 hover:bg-slate-100 border border-slate-200 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 dark:border-slate-700'
+            : 'bg-gradient-to-r from-brand-purple to-indigo-600 hover:from-brand-purpleHover hover:to-indigo-500 text-white shadow-glow-purple hover:scale-105 active:scale-95'
         }`}
       >
         {isOpen ? (

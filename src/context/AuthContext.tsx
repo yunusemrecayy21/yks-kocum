@@ -4,7 +4,8 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  updatePassword
 } from 'firebase/auth';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -29,8 +30,10 @@ interface AuthContextValue {
   register: (email: string, password: string) => Promise<AuthResult>;
   login: (email: string, password: string) => Promise<AuthResult>;
   resetPassword: (email: string) => Promise<AuthResult>;
+  changePassword: (newPassword: string) => Promise<AuthResult>;
   logout: () => Promise<void>;
   saveOnboardingProfile: (profile: Omit<UserOnboardingProfile, 'completedAt'>) => Promise<void>;
+  refreshProfile: () => Promise<UserOnboardingProfile | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -82,6 +85,8 @@ const translateFirebaseAuthError = (error: unknown): string => {
       return 'İnternet bağlantısı kurulamadı. Lütfen bağlantınızı kontrol edin.';
     case 'auth/operation-not-allowed':
       return 'Firebase Console üzerinde E-posta/Şifre ile giriş yöntemi henüz etkinleştirilmemiş.';
+    case 'auth/requires-recent-login':
+      return 'Güvenlik nedeniyle şifrenizi güncellemek için lütfen çıkış yapıp tekrar giriş yaptıktan sonra yeniden deneyin.';
     default:
       return 'Kimlik doğrulama işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.';
   }
@@ -154,6 +159,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const changePassword = async (newPassword: string): Promise<AuthResult> => {
+    if (!auth.currentUser) {
+      return {
+        success: false,
+        error: 'Aktif kullanıcı oturumu bulunamadı. Lütfen yeniden giriş yapın.'
+      };
+    }
+    try {
+      await updatePassword(auth.currentUser, newPassword);
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: translateFirebaseAuthError(error)
+      };
+    }
+  };
+
   const logout = async (): Promise<void> => {
     await signOut(auth);
   };
@@ -173,6 +196,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setOnboardingProfile(fullProfile);
   };
 
+  const refreshProfile = async (): Promise<UserOnboardingProfile | null> => {
+    if (!user) return null;
+    const profile = await fetchUserProfile(user.uid);
+    setOnboardingProfile(profile);
+    return profile;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -185,8 +215,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         login,
         resetPassword,
+        changePassword,
         logout,
-        saveOnboardingProfile
+        saveOnboardingProfile,
+        refreshProfile
       }}
     >
       {children}

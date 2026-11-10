@@ -29,7 +29,8 @@ export const EMPTY_STUDY_STATS: StudyStatsRecord = {
 const TASKS_COLLECTION = 'tasks';
 const EXAMS_COLLECTION = 'exams';
 const STATS_COLLECTION = 'stats';
-const PROFILES_COLLECTION = 'profiles';
+const USER_PROFILES_COLLECTION = 'userProfiles';
+const LEGACY_PROFILES_COLLECTION = 'profiles';
 
 // ==========================================
 // TASKS (Günlük Çalışma Programım)
@@ -209,8 +210,17 @@ export const saveStudyStatsToFirestore = async (
 export const fetchUserProfile = async (
   userId: string
 ): Promise<UserOnboardingProfile | null> => {
-  const q = query(collection(db, PROFILES_COLLECTION), where('userId', '==', userId));
-  const snapshot = await getDocs(q);
+  const q = query(collection(db, USER_PROFILES_COLLECTION), where('userId', '==', userId));
+  let snapshot = await getDocs(q);
+
+  // Fallback once to legacy 'profiles' collection if userProfiles has no doc yet
+  if (snapshot.empty) {
+    const legacyQ = query(
+      collection(db, LEGACY_PROFILES_COLLECTION),
+      where('userId', '==', userId)
+    );
+    snapshot = await getDocs(legacyQ);
+  }
 
   if (snapshot.empty) {
     return null;
@@ -239,12 +249,12 @@ export const saveUserProfileToFirestore = async (
   userId: string,
   profile: UserOnboardingProfile
 ): Promise<void> => {
-  const q = query(collection(db, PROFILES_COLLECTION), where('userId', '==', userId));
+  const q = query(collection(db, USER_PROFILES_COLLECTION), where('userId', '==', userId));
   const snapshot = await getDocs(q);
 
   if (!snapshot.empty) {
     const existingDoc = snapshot.docs[0];
-    await updateDoc(doc(db, PROFILES_COLLECTION, existingDoc.id), {
+    await updateDoc(doc(db, USER_PROFILES_COLLECTION, existingDoc.id), {
       gradeLevel: profile.gradeLevel,
       studyField: profile.studyField,
       targetUniversity: profile.targetUniversity,
@@ -255,7 +265,7 @@ export const saveUserProfileToFirestore = async (
     return;
   }
 
-  await addDoc(collection(db, PROFILES_COLLECTION), {
+  await addDoc(collection(db, USER_PROFILES_COLLECTION), {
     userId,
     gradeLevel: profile.gradeLevel,
     studyField: profile.studyField,
