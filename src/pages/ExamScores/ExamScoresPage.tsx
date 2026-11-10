@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   BarChart3,
   Plus,
@@ -313,13 +313,40 @@ export const ExamScoresPage: React.FC = () => {
   const [chartFilter, setChartFilter] = useState<ChartSeriesFilter>('all');
   const [selectedSubjectId, setSelectedSubjectId] = useState<string>('tyt:matematik');
 
-  // Add Exam Form state (Subject-level inputs -> auto-calculated totals)
+  // Add Exam Form state & smooth scroll reference
+  const formRef = useRef<HTMLDivElement | null>(null);
+  const scrollPendingRef = useRef<boolean>(false);
   const [isAdding, setIsAdding] = useState<boolean>(false);
   const [name, setName] = useState<string>('');
   const [publisher, setPublisher] = useState<string>('');
   const [date, setDate] = useState<string>(() => getLocalDateKey());
   const [tytSubjectInputs, setTytSubjectInputs] = useState<Record<string, string>>({});
   const [aytSubjectInputs, setAytSubjectInputs] = useState<Record<string, string>>({});
+
+  const scrollToForm = () => {
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  useEffect(() => {
+    if (!isAdding || !scrollPendingRef.current) return;
+    scrollPendingRef.current = false;
+
+    const timerId = window.setTimeout(() => {
+      scrollToForm();
+    }, 60);
+
+    return () => window.clearTimeout(timerId);
+  }, [isAdding]);
+
+  const handleOpenAddForm = () => {
+    setFormError(null);
+    if (!isAdding) {
+      scrollPendingRef.current = true;
+      setIsAdding(true);
+    } else {
+      scrollToForm();
+    }
+  };
 
   // Load mockExams (and legacy exams) from Firestore
   useEffect(() => {
@@ -617,10 +644,7 @@ export const ExamScoresPage: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => {
-            setIsAdding((prev) => !prev);
-            setFormError(null);
-          }}
+          onClick={handleOpenAddForm}
           disabled={isLoading}
           className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-purple hover:bg-brand-purpleHover disabled:opacity-60 text-white text-xs sm:text-sm font-semibold shadow-lg shadow-brand-purple/25 transition self-start sm:self-auto"
         >
@@ -955,7 +979,8 @@ export const ExamScoresPage: React.FC = () => {
 
       {/* Add New Mock Exam Form (Strictly Subject-Based Breakdown Inputs -> Auto Total) */}
       {isAdding && (
-        <Card className="p-6 border-brand-purple/40 bg-white dark:bg-slate-900/90 shadow-glow-purple/10 dark:shadow-glow-purple/20 animate-fadeIn">
+        <div ref={formRef} className="scroll-mt-24">
+          <Card className="p-6 border-brand-purple/40 bg-white dark:bg-slate-900/90 shadow-glow-purple/10 dark:shadow-glow-purple/20 animate-fadeIn">
           <form onSubmit={handleAddMockExam} className="space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
               <div>
@@ -1161,7 +1186,8 @@ export const ExamScoresPage: React.FC = () => {
               </div>
             </div>
           </form>
-        </Card>
+          </Card>
+        </div>
       )}
 
       {/* Past Exam Records List with Subject Breakdowns */}
