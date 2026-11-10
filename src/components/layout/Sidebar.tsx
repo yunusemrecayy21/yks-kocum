@@ -17,6 +17,7 @@ import {
   X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { PwaInstallButton } from '../pwa/PwaInstallButton';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -227,6 +228,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <SlidersHorizontal className="w-3.5 h-3.5" />
             </button>
           </div>
+
+          <PwaInstallButton variant="sidebar" />
 
           <button
             type="button"

@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider } from './context/AuthContext';
 import { AiCoachProvider } from './context/AiCoachContext';
+import { PwaProvider } from './context/PwaContext';
+import { PwaIosGuideModal } from './components/pwa/PwaInstallButton';
 import { ProtectedRoute, PublicAuthRoute, OnboardingRoute } from './components/auth/ProtectedRoute';
 import { Layout } from './components/layout/Layout';
 import { AuthPage } from './pages/Auth/AuthPage';
@@ -18,39 +20,42 @@ import { ProfilePage } from './pages/Profile/ProfilePage';
 export const App: React.FC = () => {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <AiCoachProvider>
-          <BrowserRouter>
-            <Routes>
-              {/* Public Auth Route */}
-              <Route element={<PublicAuthRoute />}>
-                <Route path="/auth" element={<AuthPage />} />
-              </Route>
-
-              {/* Onboarding Route (Authenticated users who haven't completed onboarding or are editing) */}
-              <Route element={<OnboardingRoute />}>
-                <Route path="/onboarding" element={<OnboardingPage />} />
-              </Route>
-
-              {/* Protected Application Routes */}
-              <Route element={<ProtectedRoute />}>
-                <Route path="/" element={<Layout />}>
-                  <Route index element={<DashboardPage />} />
-                  <Route path="program" element={<DailySchedulePage />} />
-                  <Route path="sayac" element={<StudyTimerPage />} />
-                  <Route path="pomodoro" element={<StudyRoom />} />
-                  <Route path="denemeler" element={<ExamScoresPage />} />
-                  <Route path="koc" element={<AiCoachPage />} />
-                  <Route path="profile" element={<ProfilePage />} />
+      <PwaProvider>
+        <AuthProvider>
+          <AiCoachProvider>
+            <BrowserRouter>
+              <Routes>
+                {/* Public Auth Route */}
+                <Route element={<PublicAuthRoute />}>
+                  <Route path="/auth" element={<AuthPage />} />
                 </Route>
-              </Route>
 
-              {/* Fallback Route */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </BrowserRouter>
-        </AiCoachProvider>
-      </AuthProvider>
+                {/* Onboarding Route (Authenticated users who haven't completed onboarding or are editing) */}
+                <Route element={<OnboardingRoute />}>
+                  <Route path="/onboarding" element={<OnboardingPage />} />
+                </Route>
+
+                {/* Protected Application Routes */}
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/" element={<Layout />}>
+                    <Route index element={<DashboardPage />} />
+                    <Route path="program" element={<DailySchedulePage />} />
+                    <Route path="sayac" element={<StudyTimerPage />} />
+                    <Route path="pomodoro" element={<StudyRoom />} />
+                    <Route path="denemeler" element={<ExamScoresPage />} />
+                    <Route path="koc" element={<AiCoachPage />} />
+                    <Route path="profile" element={<ProfilePage />} />
+                  </Route>
+                </Route>
+
+                {/* Fallback Route */}
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </BrowserRouter>
+            <PwaIosGuideModal />
+          </AiCoachProvider>
+        </AuthProvider>
+      </PwaProvider>
     </ThemeProvider>
   );
 };

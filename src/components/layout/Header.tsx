@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Menu, Calendar, Clock, Bell, BellOff, CheckCheck, LogOut, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { PwaInstallButton } from '../pwa/PwaInstallButton';
 
 interface HeaderProps {
   onMenuToggle: () => void;
@@ -107,6 +108,9 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
           <span className="w-2 h-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-pulse" />
           <span>Odak Modu Aktif</span>
         </div>
+
+        {/* PWA Install Button (Ana Ekrana Ekle) */}
+        <PwaInstallButton variant="header" />
 
         {/* Light / Dark Theme Toggle Button */}
         <button
