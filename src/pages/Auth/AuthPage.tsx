@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   GraduationCap,
   Mail,
@@ -9,7 +9,11 @@ import {
   UserPlus,
   AlertTriangle,
   Sparkles,
-  Loader2
+  Loader2,
+  KeyRound,
+  CheckCircle2,
+  Send,
+  X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -60,7 +64,7 @@ const validateCredentials = (
 };
 
 export const AuthPage: React.FC = () => {
-  const { login, register } = useAuth();
+  const { login, register, resetPassword } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -69,21 +73,49 @@ export const AuthPage: React.FC = () => {
   const [submitAttempted, setSubmitAttempted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [resetSuccessMessage, setResetSuccessMessage] = useState<string | null>(null);
+
+  // Forgot Password Modal State
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [isResetSubmitting, setIsResetSubmitting] = useState(false);
 
   const validation = validateCredentials(email, password, activeTab);
   const hasStartedTyping = email.length > 0 || password.length > 0;
   const showValidationWarnings = !validation.isValid && (hasStartedTyping || submitAttempted);
 
+  useEffect(() => {
+    if (!isForgotModalOpen) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !isResetSubmitting) {
+        setIsForgotModalOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isForgotModalOpen, isResetSubmitting]);
+
   const switchTab = (tab: 'login' | 'register') => {
     setActiveTab(tab);
     setSubmitAttempted(false);
     setAuthError(null);
+    setResetSuccessMessage(null);
+  };
+
+  const openForgotModal = () => {
+    setResetEmail(email);
+    setResetError(null);
+    setIsForgotModalOpen(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
     setAuthError(null);
+    setResetSuccessMessage(null);
 
     if (!validation.isValid) {
       setSubmitAttempted(true);
@@ -100,10 +132,35 @@ export const AuthPage: React.FC = () => {
       if (!result.success) {
         setAuthError(result.error ?? 'İşlem sırasında bir hata oluştu.');
       }
-      // On success, onAuthStateChanged in AuthContext automatically updates user
-      // and PublicAuthRoute redirects cleanly to /onboarding or /
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isResetSubmitting) return;
+    setResetError(null);
+
+    if (!EMAIL_REGEX.test(resetEmail.trim())) {
+      setResetError('Lütfen geçerli bir e-posta adresi girin.');
+      return;
+    }
+
+    setIsResetSubmitting(true);
+    try {
+      const result = await resetPassword(resetEmail);
+      if (!result.success) {
+        setResetError(result.error ?? 'Şifre sıfırlama bağlantısı gönderilemedi.');
+        return;
+      }
+
+      setIsForgotModalOpen(false);
+      setResetSuccessMessage(
+        'Şifre sıfırlama bağlantısı e-posta adresinize gönderildi. Lütfen spam kutunuzu da kontrol edin.'
+      );
+    } finally {
+      setIsResetSubmitting(false);
     }
   };
 
@@ -157,6 +214,24 @@ export const AuthPage: React.FC = () => {
             Kayıt Ol
           </button>
         </div>
+
+        {/* Password Reset Success Banner */}
+        {resetSuccessMessage && (
+          <div className="mb-5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3.5 flex items-start justify-between gap-2.5 text-xs text-emerald-300 animate-fadeIn">
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <p className="leading-relaxed">{resetSuccessMessage}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setResetSuccessMessage(null)}
+              className="text-emerald-400/70 hover:text-emerald-200 transition shrink-0"
+              aria-label="Bildirimi Kapat"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Auth Form (Email & Password for Firebase Auth) */}
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
@@ -216,6 +291,19 @@ export const AuthPage: React.FC = () => {
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+
+            {/* Subtle Forgot Password Link (only on Login tab) */}
+            {activeTab === 'login' && (
+              <div className="flex justify-end mt-2">
+                <button
+                  type="button"
+                  onClick={openForgotModal}
+                  className="text-xs font-medium text-slate-400 hover:text-brand-purpleLight transition"
+                >
+                  Şifremi Unuttum
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Validation Rules Warning Box */}
@@ -273,6 +361,112 @@ export const AuthPage: React.FC = () => {
           </button>
         </form>
       </div>
+
+      {/* Forgot Password Modal */}
+      {isForgotModalOpen && (
+        <div
+          onClick={() => !isResetSubmitting && setIsForgotModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm rounded-3xl bg-[#0f172a]/95 backdrop-blur-xl border border-slate-800/90 p-6 shadow-2xl shadow-black/70 space-y-5 relative"
+          >
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-brand-purple/15 border border-brand-purple/30 flex items-center justify-center text-brand-purpleLight shrink-0">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-white tracking-tight">
+                    Şifremi Unuttum
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Sıfırlama bağlantısı gönder
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={isResetSubmitting}
+                onClick={() => setIsForgotModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition"
+                aria-label="Kapat"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Kayıtlı e-posta adresinizi girin, şifrenizi yenilemeniz için size bir sıfırlama bağlantısı gönderelim.
+            </p>
+
+            {/* Reset Password Form */}
+            <form onSubmit={handleResetSubmit} noValidate className="space-y-4">
+              <div>
+                <label
+                  htmlFor="reset-email"
+                  className="block text-xs font-medium text-slate-300 mb-1.5"
+                >
+                  E-posta Adresi
+                </label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    id="reset-email"
+                    type="email"
+                    autoFocus
+                    placeholder="ornek@eposta.com"
+                    value={resetEmail}
+                    onChange={(e) => {
+                      setResetEmail(e.target.value);
+                      setResetError(null);
+                    }}
+                    className="w-full bg-slate-950/90 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/25 transition-all"
+                  />
+                </div>
+              </div>
+
+              {resetError && (
+                <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3 flex items-start gap-2 text-xs text-rose-300">
+                  <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <p className="leading-relaxed">{resetError}</p>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2.5 pt-1">
+                <button
+                  type="button"
+                  disabled={isResetSubmitting}
+                  onClick={() => setIsForgotModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800/60 transition"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  disabled={isResetSubmitting}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-brand-purple to-indigo-600 hover:from-brand-purpleHover hover:to-indigo-500 disabled:opacity-60 text-white text-xs font-semibold shadow-md shadow-brand-purple/25 transition"
+                >
+                  {isResetSubmitting ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Gönderiliyor...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-3.5 h-3.5" />
+                      <span>Bağlantı Gönder</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

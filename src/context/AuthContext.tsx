@@ -3,7 +3,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -27,6 +28,7 @@ interface AuthContextValue {
   isTytOnly: boolean;
   register: (email: string, password: string) => Promise<AuthResult>;
   login: (email: string, password: string) => Promise<AuthResult>;
+  resetPassword: (email: string) => Promise<AuthResult>;
   logout: () => Promise<void>;
   saveOnboardingProfile: (profile: Omit<UserOnboardingProfile, 'completedAt'>) => Promise<void>;
 }
@@ -64,6 +66,8 @@ const translateFirebaseAuthError = (error: unknown): string => {
       return 'Bu e-posta adresi zaten kullanımda. Lütfen giriş yapın veya farklı bir e-posta deneyin.';
     case 'auth/invalid-email':
       return 'Lütfen geçerli bir e-posta adresi girin.';
+    case 'auth/missing-email':
+      return 'Lütfen e-posta adresinizi girin.';
     case 'auth/weak-password':
       return 'Şifreniz çok zayıf. En az 6 karakter uzunluğunda güçlü bir şifre belirleyin.';
     case 'auth/user-not-found':
@@ -138,6 +142,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const resetPassword = async (email: string): Promise<AuthResult> => {
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: translateFirebaseAuthError(error)
+      };
+    }
+  };
+
   const logout = async (): Promise<void> => {
     await signOut(auth);
   };
@@ -168,6 +184,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isTytOnly: checkIsTytOnly(onboardingProfile),
         register,
         login,
+        resetPassword,
         logout,
         saveOnboardingProfile
       }}
