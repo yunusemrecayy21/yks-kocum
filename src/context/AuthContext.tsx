@@ -5,13 +5,15 @@ import {
   signOut,
   onAuthStateChanged,
   sendPasswordResetEmail,
-  updatePassword
+  updatePassword,
+  updateProfile
 } from 'firebase/auth';
 import type { User as FirebaseUser } from 'firebase/auth';
 import { auth } from '../firebase';
 import {
   fetchUserProfile,
-  saveUserProfileToFirestore
+  saveUserProfileToFirestore,
+  saveUserRecordToFirestore
 } from '../services/firestoreService';
 import type { AuthUser, UserOnboardingProfile } from '../types';
 
@@ -27,7 +29,7 @@ interface AuthContextValue {
   onboardingProfile: UserOnboardingProfile | null;
   hasCompletedOnboarding: boolean;
   isTytOnly: boolean;
-  register: (email: string, password: string) => Promise<AuthResult>;
+  register: (email: string, password: string, fullName: string) => Promise<AuthResult>;
   login: (email: string, password: string) => Promise<AuthResult>;
   resetPassword: (email: string) => Promise<AuthResult>;
   changePassword: (newPassword: string) => Promise<AuthResult>;
@@ -49,13 +51,15 @@ export const checkIsTytOnly = (profile: UserOnboardingProfile | null): boolean =
 
 const mapFirebaseUser = (fbUser: FirebaseUser): AuthUser => {
   const email = fbUser.email ?? '';
+  const cleanDisplayName = fbUser.displayName?.trim() || null;
   const derivedName =
-    fbUser.displayName || (email.includes('@') ? email.split('@')[0] : 'Öğrenci');
+    cleanDisplayName || (email.includes('@') ? email.split('@')[0] : 'Öğrenci');
 
   return {
     uid: fbUser.uid,
     id: fbUser.uid,
     email,
+    displayName: cleanDisplayName,
     username: derivedName,
     createdAt: fbUser.metadata.creationTime ?? new Date().toISOString()
   };
@@ -123,9 +127,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, []);
 
-  const register = async (email: string, password: string): Promise<AuthResult> => {
+  const register = async (
+    email: string,
+    password: string,
+    fullName: string
+  ): Promise<AuthResult> => {
     try {
-      await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const cleanEmail = email.trim();
+      const cleanFullName = fullName.trim();
+      const userCredential = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+
+      if (cleanFullName) {
+        await updateProfile(userCredential.user, {
+          displayName: cleanFullName
+        });
+        setUser(mapFirebaseUser(userCredential.user));
+      }
+
+      try {
+        await saveUserRecordToFirestore(userCredential.user.uid, {
+          email: cleanEmail,
+          fullName: cleanFullName
+        });
+      } catch (firestoreError) {
+        console.error('Firestore users save error:', firestoreError);
+      }
+
       return { success: true };
     } catch (error) {
       return {

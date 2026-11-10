@@ -6,6 +6,7 @@ import {
   Eye,
   EyeOff,
   LogIn,
+  User,
   UserPlus,
   AlertTriangle,
   Sparkles,
@@ -25,11 +26,16 @@ interface ValidationResult {
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const validateCredentials = (
+  fullName: string,
   email: string,
   password: string,
   mode: 'login' | 'register'
 ): ValidationResult => {
   const missingRules: string[] = [];
+
+  if (mode === 'register' && fullName.trim().length < 2) {
+    missingRules.push('Lütfen adınızı ve soyadınızı girin (en az 2 karakter).');
+  }
 
   if (!EMAIL_REGEX.test(email.trim())) {
     missingRules.push('Lütfen geçerli bir e-posta adresi girin (ör. ad@alanadi.com).');
@@ -67,6 +73,7 @@ export const AuthPage: React.FC = () => {
   const { login, register, resetPassword } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -81,8 +88,8 @@ export const AuthPage: React.FC = () => {
   const [resetError, setResetError] = useState<string | null>(null);
   const [isResetSubmitting, setIsResetSubmitting] = useState(false);
 
-  const validation = validateCredentials(email, password, activeTab);
-  const hasStartedTyping = email.length > 0 || password.length > 0;
+  const validation = validateCredentials(fullName, email, password, activeTab);
+  const hasStartedTyping = fullName.length > 0 || email.length > 0 || password.length > 0;
   const showValidationWarnings = !validation.isValid && (hasStartedTyping || submitAttempted);
 
   useEffect(() => {
@@ -126,7 +133,7 @@ export const AuthPage: React.FC = () => {
     try {
       const result =
         activeTab === 'register'
-          ? await register(email, password)
+          ? await register(email, password, fullName)
           : await login(email, password);
 
       if (!result.success) {
@@ -233,8 +240,35 @@ export const AuthPage: React.FC = () => {
           </div>
         )}
 
-        {/* Auth Form (Email & Password for Firebase Auth) */}
+        {/* Auth Form (Full Name, Email & Password for Firebase Auth) */}
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          {/* Full Name Input (only on Register tab) */}
+          {activeTab === 'register' && (
+            <div className="animate-fadeIn">
+              <label
+                htmlFor="auth-fullname"
+                className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5"
+              >
+                Ad Soyad
+              </label>
+              <div className="relative">
+                <User className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  id="auth-fullname"
+                  type="text"
+                  autoComplete="name"
+                  placeholder="Adınız Soyadınız"
+                  value={fullName}
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                    setAuthError(null);
+                  }}
+                  className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-300 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/25 focus:shadow-[0_0_16px_rgba(139,92,246,0.22)] transition-all"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Email Input */}
           <div>
             <label

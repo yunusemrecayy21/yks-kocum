@@ -4,6 +4,7 @@ import {
   where,
   getDocs,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   doc
@@ -31,6 +32,7 @@ const EXAMS_COLLECTION = 'exams';
 const MOCK_EXAMS_COLLECTION = 'mockExams';
 const STATS_COLLECTION = 'stats';
 const STUDY_SESSIONS_COLLECTION = 'studySessions';
+const USERS_COLLECTION = 'users';
 const USER_PROFILES_COLLECTION = 'userProfiles';
 const LEGACY_PROFILES_COLLECTION = 'profiles';
 
@@ -419,4 +421,29 @@ export const addMockExamToFirestore = async (
 
 export const deleteMockExamFromFirestore = async (examId: string): Promise<void> => {
   await deleteDoc(doc(db, MOCK_EXAMS_COLLECTION, examId));
+};
+
+// ==========================================
+// USERS (Kullanıcı Hesap Kaydı - Ad Soyad)
+// ==========================================
+
+export const saveUserRecordToFirestore = async (
+  userId: string,
+  userData: {
+    email: string;
+    fullName: string;
+  }
+): Promise<void> => {
+  const cleanName = userData.fullName.trim();
+  await setDoc(
+    doc(db, USERS_COLLECTION, userId),
+    {
+      userId,
+      email: userData.email.trim(),
+      fullName: cleanName,
+      displayName: cleanName,
+      updatedAt: Date.now()
+    },
+    { merge: true }
+  );
 };

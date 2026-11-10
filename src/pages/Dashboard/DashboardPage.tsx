@@ -35,7 +35,8 @@ const getDailyQuote = (date: Date) => {
 
 export const DashboardPage: React.FC = () => {
   const { user, onboardingProfile, isTytOnly } = useAuth();
-  const displayUsername = user?.username || 'Öğrenci';
+  const rawDisplayName = user?.displayName?.trim() || user?.username?.trim() || '';
+  const firstName = rawDisplayName ? rawDisplayName.split(/\s+/)[0] : 'Öğrenci';
   const targetUniversity = onboardingProfile?.targetUniversity || 'Hedef Üniversite';
   const targetDepartment = onboardingProfile?.targetDepartment || 'Hedef Bölüm';
   const gradeLevel = onboardingProfile?.gradeLevel || '12. Sınıf';
@@ -63,7 +64,7 @@ export const DashboardPage: React.FC = () => {
               <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
                 Tekrar hoş geldin,{' '}
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-brand-purple to-indigo-500 dark:from-brand-purpleLight dark:to-sky-400">
-                  {displayUsername}!
+                  {firstName}!
                 </span>{' '}
                 YKS yolculuğunda bugün nasılsın?
               </h1>
