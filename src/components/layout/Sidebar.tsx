@@ -5,6 +5,7 @@ import {
   CheckSquare, 
   BarChart3, 
   Timer,
+  Bot,
   Sparkles, 
   GraduationCap, 
   Target,
@@ -61,6 +62,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       path: '/denemeler',
       icon: BarChart3,
       badge: isTytOnly ? 'TYT' : 'TYT/AYT',
+    },
+    {
+      name: 'Yapay Zeka Koçu',
+      path: '/koc',
+      icon: Bot,
+      badge: 'AI',
     },
   ];
 
