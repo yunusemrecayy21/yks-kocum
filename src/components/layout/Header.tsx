@@ -94,10 +94,10 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
       {/* Right side: YKS Countdown, Focus Mode, Theme Toggle, Notifications & Sign Out */}
       <div className="flex items-center gap-2.5 sm:gap-3">
         {/* YKS Countdown Badge */}
-        <div className="flex items-center gap-2 bg-purple-50 dark:bg-gradient-to-r dark:from-brand-purple/15 dark:to-indigo-600/10 border border-purple-200 dark:border-brand-purple/30 px-3 sm:px-3.5 py-1.5 rounded-xl text-xs">
-          <Clock className="w-4 h-4 text-brand-purple dark:text-brand-purpleLight" />
+        <div className="flex items-center gap-2 bg-purple-50 dark:bg-indigo-950/80 border border-purple-200 dark:border-indigo-700/60 px-3 sm:px-3.5 py-1.5 rounded-xl text-xs shadow-sm transition-colors duration-200">
+          <Clock className="w-4 h-4 text-brand-purple dark:text-indigo-300 shrink-0" />
           <div className="flex items-baseline gap-1">
-            <span className="text-slate-500 dark:text-slate-400 hidden md:inline">YKS'ye:</span>
+            <span className="text-slate-600 dark:text-indigo-200 hidden md:inline">YKS'ye:</span>
             <span className="font-bold text-slate-900 dark:text-white tracking-wide">{diffDays} Gün</span>
           </div>
         </div>

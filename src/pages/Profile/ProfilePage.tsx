@@ -450,7 +450,7 @@ export const ProfilePage: React.FC = () => {
 
             {/* Password Validation Hints */}
             {showPasswordRules && (
-              <div className="rounded-xl bg-amber-50 dark:bg-gradient-to-r dark:from-rose-500/10 dark:to-amber-500/10 border border-amber-200 dark:border-amber-500/30 p-3 space-y-1">
+              <div className="rounded-xl bg-gradient-to-r from-rose-50 to-amber-50 dark:from-rose-500/10 dark:to-amber-500/10 border border-amber-200 dark:border-amber-500/30 p-3 space-y-1">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 dark:text-amber-300">
                   <AlertTriangle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400 shrink-0" />
                   <span>Şifre gereksinimleri:</span>
