@@ -16,12 +16,15 @@ import {
   SlidersHorizontal,
   Loader2,
   AlertTriangle,
-  Award
+  Award,
+  Maximize2
 } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useFullscreenTimer } from '../hooks/useFullscreenTimer';
+import { FullscreenFocusView } from '../components/timer/FullscreenFocusView';
 import { getLocalDateKey } from '../utils/date';
 import { playTimerChime } from '../utils/audio';
 import {
@@ -52,6 +55,15 @@ const formatSessionTime = (isoString: string): string => {
 export const StudyRoom: React.FC = () => {
   const { user, onboardingProfile } = useAuth();
   const { isDark } = useTheme();
+  const {
+    containerRef,
+    isFullscreen,
+    controlsVisible,
+    enterFullscreen,
+    exitFullscreen,
+    handleActivity,
+    keepControlsVisible
+  } = useFullscreenTimer();
   const userId = user?.uid;
 
   // Pomodoro durations (default: 25 dk Odak / 5 dk Mola)
@@ -330,6 +342,15 @@ export const StudyRoom: React.FC = () => {
 
           <button
             type="button"
+            onClick={() => void enterFullscreen()}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-brand-purple to-indigo-600 hover:from-brand-purpleHover hover:to-indigo-500 text-white shadow-md shadow-brand-purple/20 transition"
+          >
+            <Maximize2 className="w-4 h-4" />
+            <span>Tam Ekran (Focus Mode)</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setSoundEnabled((prev) => !prev)}
             className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition ${
               soundEnabled
@@ -388,7 +409,25 @@ export const StudyRoom: React.FC = () => {
         </div>
       )}
 
-      {/* Centered Pomodoro Focus Stage */}
+      {/* Centered Pomodoro Focus Stage / Fullscreen Focus Container */}
+      <div ref={containerRef}>
+        {isFullscreen ? (
+          <FullscreenFocusView
+            mode={mode === 'focus' ? 'work' : 'break'}
+            formattedTime={formatCountdown(remainingSeconds)}
+            progressRatio={progressRatio}
+            isRunning={isRunning}
+            isDark={isDark}
+            controlsVisible={controlsVisible}
+            subtitle={focusTopic.trim() || (mode === 'focus' ? 'Tam Konsantrasyon Modu' : 'Nefes Al & Dinlen')}
+            onStart={handleStart}
+            onPause={handlePause}
+            onReset={handleReset}
+            onExitFullscreen={() => void exitFullscreen()}
+            onUserActivity={handleActivity}
+            onControlsHover={keepControlsVisible}
+          />
+        ) : (
       <Card className="max-w-3xl mx-auto p-6 sm:p-10 bg-white dark:bg-[#0f172a]/90 border-slate-200 dark:border-slate-800/90 relative overflow-hidden shadow-xl shadow-slate-200/60 dark:shadow-2xl dark:shadow-black/50">
         {/* Ambient Background Glow */}
         <div
@@ -664,6 +703,8 @@ export const StudyRoom: React.FC = () => {
           </div>
         </div>
       </Card>
+        )}
+      </div>
 
       {/* Summary Metrics + Firestore studySessions History */}
       <div className="max-w-3xl mx-auto space-y-5">

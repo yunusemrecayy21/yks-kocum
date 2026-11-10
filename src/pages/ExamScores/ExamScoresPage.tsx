@@ -9,9 +9,7 @@ import {
   Sparkles,
   LineChart as LineChartIcon,
   Loader2,
-  AlertTriangle,
-  ChevronDown,
-  ChevronUp
+  AlertTriangle
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -45,15 +43,17 @@ interface ScoreFieldConfig {
 
 const TYT_FIELDS: ScoreFieldConfig[] = [
   { key: 'turkce', label: 'Türkçe', shortLabel: 'TR', max: 40 },
+  { key: 'sosyal', label: 'Sosyal', shortLabel: 'SOS', max: 20 },
   { key: 'matematik', label: 'Matematik', shortLabel: 'MAT', max: 40 },
-  { key: 'sosyal', label: 'Sosyal Bilimler', shortLabel: 'SOS', max: 20 },
-  { key: 'fen', label: 'Fen Bilimleri', shortLabel: 'FEN', max: 20 }
+  { key: 'fen', label: 'Fen', shortLabel: 'FEN', max: 20 }
 ];
 
 const AYT_FIELDS_BY_STUDY_FIELD: Record<Exclude<StudyField, 'Sadece TYT'>, ScoreFieldConfig[]> = {
   'Sayısal': [
     { key: 'matematik', label: 'Matematik', shortLabel: 'MAT', max: 40 },
-    { key: 'fen', label: 'Fen Bilimleri', shortLabel: 'FEN', max: 40 }
+    { key: 'fizik', label: 'Fizik', shortLabel: 'FİZ', max: 14 },
+    { key: 'kimya', label: 'Kimya', shortLabel: 'KİM', max: 13 },
+    { key: 'biyoloji', label: 'Biyoloji', shortLabel: 'BİY', max: 13 }
   ],
   'Eşit Ağırlık': [
     { key: 'matematik', label: 'Matematik', shortLabel: 'MAT', max: 40 },
@@ -70,6 +70,44 @@ const AYT_FIELDS_BY_STUDY_FIELD: Record<Exclude<StudyField, 'Sadece TYT'>, Score
   ]
 };
 
+interface SubjectOption {
+  id: string;
+  examCategory: 'TYT' | 'AYT';
+  key: MockExamSubjectKey;
+  label: string;
+  max: number;
+}
+
+const ALL_SUBJECT_OPTIONS: SubjectOption[] = [
+  { id: 'tyt:turkce', examCategory: 'TYT', key: 'turkce', label: 'TYT Türkçe', max: 40 },
+  { id: 'tyt:sosyal', examCategory: 'TYT', key: 'sosyal', label: 'TYT Sosyal', max: 20 },
+  { id: 'tyt:matematik', examCategory: 'TYT', key: 'matematik', label: 'TYT Matematik', max: 40 },
+  { id: 'tyt:fen', examCategory: 'TYT', key: 'fen', label: 'TYT Fen', max: 20 },
+  { id: 'ayt:matematik', examCategory: 'AYT', key: 'matematik', label: 'AYT Matematik', max: 40 },
+  { id: 'ayt:fizik', examCategory: 'AYT', key: 'fizik', label: 'AYT Fizik', max: 14 },
+  { id: 'ayt:kimya', examCategory: 'AYT', key: 'kimya', label: 'AYT Kimya', max: 13 },
+  { id: 'ayt:biyoloji', examCategory: 'AYT', key: 'biyoloji', label: 'AYT Biyoloji', max: 13 },
+  { id: 'ayt:edebiyat', examCategory: 'AYT', key: 'edebiyat', label: 'AYT Edebiyat', max: 24 },
+  { id: 'ayt:sosyal1', examCategory: 'AYT', key: 'sosyal1', label: 'AYT Sosyal-1', max: 16 },
+  { id: 'ayt:sosyal2', examCategory: 'AYT', key: 'sosyal2', label: 'AYT Sosyal-2', max: 40 },
+  { id: 'ayt:ydt', examCategory: 'AYT', key: 'ydt', label: 'AYT YDT', max: 80 }
+];
+
+const SUBJECT_SHORT_LABELS: Record<MockExamSubjectKey, string> = {
+  turkce: 'TR',
+  sosyal: 'SOS',
+  matematik: 'MAT',
+  fen: 'FEN',
+  fizik: 'FİZ',
+  kimya: 'KİM',
+  biyoloji: 'BİY',
+  edebiyat: 'EDEB',
+  sosyal1: 'SOS-1',
+  sosyal2: 'SOS-2',
+  ydt: 'YDT'
+};
+
+type ChartAnalysisMode = 'overall' | 'subject';
 type ChartSeriesFilter = 'all' | 'tyt' | 'ayt';
 
 interface UnifiedExamItem {
@@ -93,11 +131,15 @@ interface ChartDataPoint {
   publisher?: string;
   tytNet: number | null;
   aytNet: number | null;
+  subjectNet: number | null;
+  subjectLabel?: string;
+  subjectMax?: number;
 }
 
 interface CustomTooltipProps {
   active?: boolean;
   payload?: Array<{ payload: ChartDataPoint }>;
+  analysisMode: ChartAnalysisMode;
 }
 
 const formatShortDate = (dateStr: string): string => {
@@ -105,6 +147,50 @@ const formatShortDate = (dateStr: string): string => {
   const parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
   return `${parts[2]}.${parts[1]}`;
+};
+
+const sumBreakdownValues = (
+  fields: ScoreFieldConfig[],
+  inputs: Record<string, string>
+): { hasAnyInput: boolean; total: number | null; breakdown: Partial<Record<MockExamSubjectKey, number>> } => {
+  const breakdown: Partial<Record<MockExamSubjectKey, number>> = {};
+  let hasAnyInput = false;
+  let sum = 0;
+
+  fields.forEach((field) => {
+    const raw = (inputs[field.key] ?? '').trim();
+    if (raw !== '') {
+      hasAnyInput = true;
+      const num = parseFloat(raw);
+      if (!Number.isNaN(num)) {
+        const cleanVal = parseFloat(num.toFixed(2));
+        breakdown[field.key] = cleanVal;
+        sum += cleanVal;
+      }
+    }
+  });
+
+  return {
+    hasAnyInput,
+    total: hasAnyInput ? parseFloat(sum.toFixed(2)) : null,
+    breakdown
+  };
+};
+
+const validateSubjectInputs = (
+  sectionLabel: 'TYT' | 'AYT',
+  fields: ScoreFieldConfig[],
+  inputs: Record<string, string>
+): string | null => {
+  for (const field of fields) {
+    const raw = (inputs[field.key] ?? '').trim();
+    if (raw === '') continue;
+    const val = parseFloat(raw);
+    if (Number.isNaN(val) || val < 0 || val > field.max) {
+      return `${sectionLabel} ${field.label} neti 0 ile ${field.max} arasında olmalıdır.`;
+    }
+  }
+  return null;
 };
 
 const convertLegacyExam = (exam: TrialExam): UnifiedExamItem => {
@@ -129,12 +215,12 @@ const convertLegacyExam = (exam: TrialExam): UnifiedExamItem => {
   };
 };
 
-const CustomChartTooltip: React.FC<CustomTooltipProps> = ({ active, payload }) => {
+const CustomChartTooltip: React.FC<CustomTooltipProps> = ({ active, payload, analysisMode }) => {
   if (!active || !payload || payload.length === 0) return null;
 
   const data = payload[0].payload;
   return (
-    <div className="rounded-2xl bg-white/95 dark:bg-[#090D16]/95 backdrop-blur-md border border-slate-200 dark:border-slate-700/80 p-4 shadow-2xl text-xs space-y-2.5 min-w-[205px]">
+    <div className="rounded-2xl bg-white/95 dark:bg-[#090D16]/95 backdrop-blur-md border border-slate-200 dark:border-slate-700/80 p-4 shadow-2xl text-xs space-y-2.5 min-w-[215px]">
       <div className="border-b border-slate-200 dark:border-slate-800 pb-2">
         <p className="font-bold text-slate-900 dark:text-white tracking-tight">{data.fullName}</p>
         <div className="flex items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400 mt-1">
@@ -151,31 +237,46 @@ const CustomChartTooltip: React.FC<CustomTooltipProps> = ({ active, payload }) =
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        {data.tytNet !== null && (
+      {analysisMode === 'subject' ? (
+        data.subjectNet !== null && (
           <div className="flex items-center justify-between gap-4">
             <span className="inline-flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
-              <span className="w-2.5 h-2.5 rounded-full bg-sky-500 dark:bg-sky-400" />
-              TYT Neti:
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+              {data.subjectLabel}:
             </span>
-            <span className="font-bold text-sky-600 dark:text-sky-400 text-sm">
-              {data.tytNet.toFixed(2)} Net
+            <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm">
+              {data.subjectNet.toFixed(2)}
+              {data.subjectMax ? ` / ${data.subjectMax}` : ''} Net
             </span>
           </div>
-        )}
+        )
+      ) : (
+        <div className="space-y-1.5">
+          {data.tytNet !== null && (
+            <div className="flex items-center justify-between gap-4">
+              <span className="inline-flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
+                <span className="w-2.5 h-2.5 rounded-full bg-sky-500 dark:bg-sky-400" />
+                TYT Neti:
+              </span>
+              <span className="font-bold text-sky-600 dark:text-sky-400 text-sm">
+                {data.tytNet.toFixed(2)} Net
+              </span>
+            </div>
+          )}
 
-        {data.aytNet !== null && (
-          <div className="flex items-center justify-between gap-4">
-            <span className="inline-flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
-              <span className="w-2.5 h-2.5 rounded-full bg-brand-purple dark:bg-purple-400" />
-              AYT Neti:
-            </span>
-            <span className="font-bold text-brand-purple dark:text-purple-400 text-sm">
-              {data.aytNet.toFixed(2)} Net
-            </span>
-          </div>
-        )}
-      </div>
+          {data.aytNet !== null && (
+            <div className="flex items-center justify-between gap-4">
+              <span className="inline-flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-300">
+                <span className="w-2.5 h-2.5 rounded-full bg-brand-purple dark:bg-purple-400" />
+                AYT Neti:
+              </span>
+              <span className="font-bold text-brand-purple dark:text-purple-400 text-sm">
+                {data.aytNet.toFixed(2)} Net
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -197,6 +298,7 @@ export const ExamScoresPage: React.FC = () => {
   const chartDotFill = isDark ? '#090D16' : '#FFFFFF';
   const tytLineColor = isDark ? '#38BDF8' : '#0284C7';
   const aytLineColor = isDark ? '#A855F7' : '#7C3AED';
+  const subjectLineColor = isDark ? '#34D399' : '#059669';
 
   // Firestore exam lists (mockExams + legacy exams compatibility)
   const [mockExams, setMockExams] = useState<MockExam[]>([]);
@@ -206,17 +308,16 @@ export const ExamScoresPage: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Chart filter
+  // Chart analysis controls
+  const [analysisMode, setAnalysisMode] = useState<ChartAnalysisMode>('overall');
   const [chartFilter, setChartFilter] = useState<ChartSeriesFilter>('all');
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('tyt:matematik');
 
-  // Add Exam Form state
+  // Add Exam Form state (Subject-level inputs -> auto-calculated totals)
   const [isAdding, setIsAdding] = useState<boolean>(false);
-  const [showBreakdownCalculator, setShowBreakdownCalculator] = useState<boolean>(false);
   const [name, setName] = useState<string>('');
   const [publisher, setPublisher] = useState<string>('');
   const [date, setDate] = useState<string>(() => getLocalDateKey());
-  const [tytNetInput, setTytNetInput] = useState<string>('');
-  const [aytNetInput, setAytNetInput] = useState<string>('');
   const [tytSubjectInputs, setTytSubjectInputs] = useState<Record<string, string>>({});
   const [aytSubjectInputs, setAytSubjectInputs] = useState<Record<string, string>>({});
 
@@ -263,36 +364,24 @@ export const ExamScoresPage: React.FC = () => {
     };
   }, [userId]);
 
-  // Auto-sum TYT breakdown inputs into tytNetInput when subject calculator is used
-  const handleTytSubjectChange = (key: string, value: string) => {
-    const next = { ...tytSubjectInputs, [key]: value };
-    setTytSubjectInputs(next);
+  // Real-time auto-calculated totals & breakdown objects from subject inputs
+  const tytCalc = useMemo(
+    () => sumBreakdownValues(TYT_FIELDS, tytSubjectInputs),
+    [tytSubjectInputs]
+  );
 
-    const hasAnyValue = Object.values(next).some((v) => v.trim() !== '');
-    if (hasAnyValue) {
-      const sum = TYT_FIELDS.reduce((acc, f) => acc + (parseFloat(next[f.key] ?? '') || 0), 0);
-      setTytNetInput(sum.toFixed(2));
-    } else {
-      setTytNetInput('');
-    }
+  const aytCalc = useMemo(
+    () => sumBreakdownValues(activeAytFields, aytSubjectInputs),
+    [activeAytFields, aytSubjectInputs]
+  );
+
+  const handleTytSubjectChange = (key: MockExamSubjectKey, value: string) => {
+    setTytSubjectInputs((prev) => ({ ...prev, [key]: value }));
     setFormError(null);
   };
 
-  // Auto-sum AYT breakdown inputs into aytNetInput when subject calculator is used
-  const handleAytSubjectChange = (key: string, value: string) => {
-    const next = { ...aytSubjectInputs, [key]: value };
-    setAytSubjectInputs(next);
-
-    const hasAnyValue = Object.values(next).some((v) => v.trim() !== '');
-    if (hasAnyValue) {
-      const sum = activeAytFields.reduce(
-        (acc, f) => acc + (parseFloat(next[f.key] ?? '') || 0),
-        0
-      );
-      setAytNetInput(sum.toFixed(2));
-    } else {
-      setAytNetInput('');
-    }
+  const handleAytSubjectChange = (key: MockExamSubjectKey, value: string) => {
+    setAytSubjectInputs((prev) => ({ ...prev, [key]: value }));
     setFormError(null);
   };
 
@@ -311,40 +400,22 @@ export const ExamScoresPage: React.FC = () => {
       return;
     }
 
-    const parsedTyt = tytNetInput.trim() === '' ? null : parseFloat(tytNetInput);
-    const parsedAyt = aytNetInput.trim() === '' ? null : parseFloat(aytNetInput);
-
-    if (parsedTyt === null && parsedAyt === null) {
-      setFormError('Lütfen en az bir TYT veya AYT neti girin.');
+    const tytError = validateSubjectInputs('TYT', TYT_FIELDS, tytSubjectInputs);
+    if (tytError) {
+      setFormError(tytError);
       return;
     }
 
-    if (parsedTyt !== null && (Number.isNaN(parsedTyt) || parsedTyt < 0 || parsedTyt > 120)) {
-      setFormError('TYT neti 0 ile 120 arasında geçerli bir sayı olmalıdır.');
+    const aytError = validateSubjectInputs('AYT', activeAytFields, aytSubjectInputs);
+    if (aytError) {
+      setFormError(aytError);
       return;
     }
 
-    if (parsedAyt !== null && (Number.isNaN(parsedAyt) || parsedAyt < 0 || parsedAyt > 80)) {
-      setFormError('AYT neti 0 ile 80 arasında geçerli bir sayı olmalıdır.');
+    if (!tytCalc.hasAnyInput && !aytCalc.hasAnyInput) {
+      setFormError('Lütfen en az bir TYT veya AYT ders neti girin.');
       return;
     }
-
-    // Build optional subject breakdown payloads
-    const tytBreakdown: NonNullable<MockExam['tytBreakdown']> = {};
-    TYT_FIELDS.forEach((f) => {
-      const raw = tytSubjectInputs[f.key];
-      if (raw !== undefined && raw.trim() !== '' && !Number.isNaN(parseFloat(raw))) {
-        tytBreakdown[f.key as keyof typeof tytBreakdown] = parseFloat(raw);
-      }
-    });
-
-    const aytBreakdown: NonNullable<MockExam['aytBreakdown']> = {};
-    activeAytFields.forEach((f) => {
-      const raw = aytSubjectInputs[f.key];
-      if (raw !== undefined && raw.trim() !== '' && !Number.isNaN(parseFloat(raw))) {
-        aytBreakdown[f.key] = parseFloat(raw);
-      }
-    });
 
     setIsSubmitting(true);
     setErrorMsg(null);
@@ -354,11 +425,19 @@ export const ExamScoresPage: React.FC = () => {
         name: name.trim(),
         date,
         publisher: publisher.trim() || undefined,
-        field: parsedAyt !== null ? aytField : undefined,
-        tytNet: parsedTyt !== null ? parseFloat(parsedTyt.toFixed(2)) : null,
-        aytNet: parsedAyt !== null ? parseFloat(parsedAyt.toFixed(2)) : null,
-        ...(Object.keys(tytBreakdown).length > 0 ? { tytBreakdown } : {}),
-        ...(Object.keys(aytBreakdown).length > 0 ? { aytBreakdown } : {})
+        field: aytCalc.hasAnyInput ? aytField : undefined,
+        tytNet: tytCalc.total,
+        aytNet: aytCalc.total,
+        ...(tytCalc.hasAnyInput
+          ? {
+              tytBreakdown: tytCalc.breakdown as MockExam['tytBreakdown']
+            }
+          : {}),
+        ...(aytCalc.hasAnyInput
+          ? {
+              aytBreakdown: aytCalc.breakdown
+            }
+          : {})
       });
 
       setMockExams((prev) =>
@@ -368,14 +447,10 @@ export const ExamScoresPage: React.FC = () => {
         })
       );
 
-      // Reset form
       setName('');
       setPublisher('');
-      setTytNetInput('');
-      setAytNetInput('');
       setTytSubjectInputs({});
       setAytSubjectInputs({});
-      setShowBreakdownCalculator(false);
       setIsAdding(false);
     } catch (err) {
       console.error('Firestore mockExam save error:', err);
@@ -460,19 +535,53 @@ export const ExamScoresPage: React.FC = () => {
     };
   }, [allExams]);
 
-  // Chronologically sorted data for dual-line Recharts LineChart
+  const selectedSubject = useMemo(
+    () =>
+      ALL_SUBJECT_OPTIONS.find((opt) => opt.id === selectedSubjectId) ??
+      ALL_SUBJECT_OPTIONS[2],
+    [selectedSubjectId]
+  );
+
+  // Chronologically sorted chart data supporting BOTH Overall Total & Subject-Specific Trends
   const chartData: ChartDataPoint[] = useMemo(() => {
-    const filtered = allExams.filter((item) => {
-      if (chartFilter === 'tyt') return item.tytNet !== null;
-      if (chartFilter === 'ayt') return item.aytNet !== null;
-      return item.tytNet !== null || item.aytNet !== null;
+    const sortedAsc = [...allExams].sort((a, b) => {
+      const diff = new Date(a.date).getTime() - new Date(b.date).getTime();
+      if (!Number.isNaN(diff) && diff !== 0) return diff;
+      return a.createdAt - b.createdAt;
     });
 
-    return [...filtered]
-      .sort((a, b) => {
-        const diff = new Date(a.date).getTime() - new Date(b.date).getTime();
-        if (!Number.isNaN(diff) && diff !== 0) return diff;
-        return a.createdAt - b.createdAt;
+    if (analysisMode === 'subject') {
+      const points: ChartDataPoint[] = [];
+      sortedAsc.forEach((item) => {
+        const rawScore =
+          selectedSubject.examCategory === 'TYT'
+            ? item.tytBreakdown?.[selectedSubject.key as keyof NonNullable<UnifiedExamItem['tytBreakdown']>]
+            : item.aytBreakdown?.[selectedSubject.key];
+
+        if (typeof rawScore === 'number') {
+          const shortName = item.name.length > 12 ? `${item.name.slice(0, 10)}..` : item.name;
+          const shortDate = formatShortDate(item.date);
+          points.push({
+            xAxisLabel: shortDate ? `${shortDate} · ${shortName}` : shortName,
+            fullName: item.name,
+            date: item.date,
+            publisher: item.publisher,
+            tytNet: null,
+            aytNet: null,
+            subjectNet: rawScore,
+            subjectLabel: selectedSubject.label,
+            subjectMax: selectedSubject.max
+          });
+        }
+      });
+      return points;
+    }
+
+    return sortedAsc
+      .filter((item) => {
+        if (chartFilter === 'tyt') return item.tytNet !== null;
+        if (chartFilter === 'ayt') return item.aytNet !== null;
+        return item.tytNet !== null || item.aytNet !== null;
       })
       .map((item) => {
         const shortName = item.name.length > 12 ? `${item.name.slice(0, 10)}..` : item.name;
@@ -483,13 +592,14 @@ export const ExamScoresPage: React.FC = () => {
           date: item.date,
           publisher: item.publisher,
           tytNet: chartFilter === 'ayt' ? null : item.tytNet,
-          aytNet: chartFilter === 'tyt' ? null : item.aytNet
+          aytNet: chartFilter === 'tyt' ? null : item.aytNet,
+          subjectNet: null
         };
       });
-  }, [allExams, chartFilter]);
+  }, [allExams, analysisMode, chartFilter, selectedSubject]);
 
-  const showTytLine = chartFilter !== 'ayt';
-  const showAytLine = chartFilter !== 'tyt';
+  const showTytLine = analysisMode === 'overall' && chartFilter !== 'ayt';
+  const showAytLine = analysisMode === 'overall' && chartFilter !== 'tyt';
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -498,10 +608,10 @@ export const ExamScoresPage: React.FC = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
             <BarChart3 className="w-7 h-7 text-brand-purple" />
-            Deneme Netlerim
+            Deneme Netlerim &amp; Ders Analizi
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-            TYT ve AYT ({isTytOnly ? 'Genel' : aytField}) deneme sonuçlarını kaydet, gelişim trendini tek grafikten izle.
+            TYT ve AYT ({isTytOnly ? 'Genel' : aytField}) denemelerini ders bazında kaydet; hem toplam netlerini hem de her dersin gelişimini grafikle izle.
           </p>
         </div>
 
@@ -594,76 +704,130 @@ export const ExamScoresPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* Dual-Line Recharts Visualization Card */}
+      {/* Recharts Visualization Card (Overall Trend vs Subject-Based Trend) */}
       <Card className="p-5 sm:p-6 border-slate-200 dark:border-slate-800/90 bg-white dark:bg-[#0f172a]/75">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-2.5">
             <div className="p-2.5 rounded-xl bg-brand-purple/10 text-brand-purple dark:text-brand-purpleLight border border-brand-purple/20 shrink-0">
               <LineChartIcon className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white tracking-tight">
-                TYT &amp; AYT Deneme Netleri Gelişim Grafiği
+                {analysisMode === 'overall'
+                  ? 'Genel Toplam Net Trendi (TYT & AYT)'
+                  : `${selectedSubject.label} · Ders Bazlı Gelişim Trendi`}
               </h2>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Denemelerin tarih ve adlarına göre TYT (mavi) ile AYT (mor) net karşılaştırması
+                {analysisMode === 'overall'
+                  ? 'Denemelerin tarihlerine göre toplam TYT (mavi) ve AYT (mor) net karşılaştırması'
+                  : `Seçili dersteki (${selectedSubject.label}) net değişimin (${selectedSubject.max} soru üzerinden)`}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 self-start lg:self-auto">
-            {/* Series Legend */}
-            <div className="flex items-center gap-3 text-xs px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
-              {showTytLine && (
-                <span className="inline-flex items-center gap-1.5 font-semibold text-sky-600 dark:text-sky-400">
-                  <span className="w-2.5 h-2.5 rounded-full bg-sky-600 dark:bg-sky-400" />
-                  TYT Neti
-                </span>
-              )}
-              {showAytLine && (
-                <span className="inline-flex items-center gap-1.5 font-semibold text-brand-purple dark:text-purple-400">
-                  <span className="w-2.5 h-2.5 rounded-full bg-brand-purple dark:bg-purple-400" />
-                  AYT Neti
-                </span>
-              )}
-            </div>
-
-            {/* Filter Switcher */}
+          <div className="flex flex-wrap items-center gap-2.5 self-start xl:self-auto">
+            {/* Primary Analysis Mode Switcher */}
             <div className="p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center text-xs font-semibold">
               <button
                 type="button"
-                onClick={() => setChartFilter('all')}
+                onClick={() => setAnalysisMode('overall')}
                 className={`px-3 py-1.5 rounded-lg transition ${
-                  chartFilter === 'all'
+                  analysisMode === 'overall'
                     ? 'bg-brand-purple text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                 }`}
               >
-                TYT + AYT
+                Genel Toplam Net Trendi
               </button>
               <button
                 type="button"
-                onClick={() => setChartFilter('tyt')}
+                onClick={() => setAnalysisMode('subject')}
                 className={`px-3 py-1.5 rounded-lg transition ${
-                  chartFilter === 'tyt'
-                    ? 'bg-sky-600 dark:bg-sky-500 text-white shadow-sm'
+                  analysisMode === 'subject'
+                    ? 'bg-emerald-600 dark:bg-emerald-500 text-white shadow-sm'
                     : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                 }`}
               >
-                TYT
-              </button>
-              <button
-                type="button"
-                onClick={() => setChartFilter('ayt')}
-                className={`px-3 py-1.5 rounded-lg transition ${
-                  chartFilter === 'ayt'
-                    ? 'bg-brand-purple text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
-                }`}
-              >
-                AYT
+                Ders Bazlı Trend
               </button>
             </div>
+
+            {analysisMode === 'overall' ? (
+              <>
+                <div className="p-1 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center text-xs font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setChartFilter('all')}
+                    className={`px-2.5 py-1.5 rounded-lg transition ${
+                      chartFilter === 'all'
+                        ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                    }`}
+                  >
+                    Tümü
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartFilter('tyt')}
+                    className={`px-2.5 py-1.5 rounded-lg transition ${
+                      chartFilter === 'tyt'
+                        ? 'bg-sky-600 dark:bg-sky-500 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                    }`}
+                  >
+                    TYT
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChartFilter('ayt')}
+                    className={`px-2.5 py-1.5 rounded-lg transition ${
+                      chartFilter === 'ayt'
+                        ? 'bg-brand-purple text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+                    }`}
+                  >
+                    AYT
+                  </button>
+                </div>
+
+                <div className="hidden sm:flex items-center gap-3 text-xs px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800">
+                  {showTytLine && (
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-sky-600 dark:text-sky-400">
+                      <span className="w-2.5 h-2.5 rounded-full bg-sky-600 dark:bg-sky-400" />
+                      TYT
+                    </span>
+                  )}
+                  {showAytLine && (
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-brand-purple dark:text-purple-400">
+                      <span className="w-2.5 h-2.5 rounded-full bg-brand-purple dark:bg-purple-400" />
+                      AYT
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <select
+                aria-label="Ders seçimi"
+                value={selectedSubjectId}
+                onChange={(e) => setSelectedSubjectId(e.target.value)}
+                className="bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-emerald-500 transition"
+              >
+                <optgroup label="TYT Dersleri">
+                  {ALL_SUBJECT_OPTIONS.filter((o) => o.examCategory === 'TYT').map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label} (Max {opt.max})
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="AYT Dersleri">
+                  {ALL_SUBJECT_OPTIONS.filter((o) => o.examCategory === 'AYT').map((opt) => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.label} (Max {opt.max})
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            )}
           </div>
         </div>
 
@@ -680,7 +844,9 @@ export const ExamScoresPage: React.FC = () => {
               <LineChartIcon className="w-6 h-6" />
             </div>
             <p className="text-sm font-medium text-slate-700 dark:text-slate-300 max-w-md leading-relaxed">
-              Henüz gösterilecek deneme neti verisi yok. &quot;Yeni Deneme Ekle&quot; butonuna basarak TYT ve AYT netlerini grafikte izlemeye başla!
+              {analysisMode === 'subject'
+                ? `${selectedSubject.label} için henüz ders bazlı net kaydı bulunamadı. Yeni deneme eklerken bu dersin netini girdiğinde trend çizgisi burada görünecek.`
+                : 'Henüz gösterilecek deneme neti verisi yok. "Yeni Deneme Ekle" butonuna basarak ders bazlı netlerini eklemeye başla!'}
             </p>
           </div>
         ) : (
@@ -703,11 +869,15 @@ export const ExamScoresPage: React.FC = () => {
                   fontSize={11}
                   tickLine={false}
                   axisLine={{ stroke: chartAxisLineStroke }}
-                  domain={[0, (dataMax: number) => Math.max(40, Math.ceil(dataMax + 10))]}
+                  domain={
+                    analysisMode === 'subject'
+                      ? [0, selectedSubject.max]
+                      : [0, (dataMax: number) => Math.max(40, Math.ceil(dataMax + 10))]
+                  }
                   dx={-4}
                 />
 
-                <Tooltip content={<CustomChartTooltip />} />
+                <Tooltip content={<CustomChartTooltip analysisMode={analysisMode} />} />
 
                 {showTytLine && (
                   <Line
@@ -754,21 +924,49 @@ export const ExamScoresPage: React.FC = () => {
                     }}
                   />
                 )}
+
+                {analysisMode === 'subject' && (
+                  <Line
+                    type="monotone"
+                    dataKey="subjectNet"
+                    name={selectedSubject.label}
+                    stroke={subjectLineColor}
+                    strokeWidth={3}
+                    connectNulls
+                    dot={{
+                      r: 5,
+                      fill: chartDotFill,
+                      stroke: subjectLineColor,
+                      strokeWidth: 2.5
+                    }}
+                    activeDot={{
+                      r: 7.5,
+                      fill: subjectLineColor,
+                      stroke: isDark ? '#FFFFFF' : '#0F172A',
+                      strokeWidth: 2
+                    }}
+                  />
+                )}
               </LineChart>
             </ResponsiveContainer>
           </div>
         )}
       </Card>
 
-      {/* Add New Mock Exam Collapsible Form */}
+      {/* Add New Mock Exam Form (Strictly Subject-Based Breakdown Inputs -> Auto Total) */}
       {isAdding && (
         <Card className="p-6 border-brand-purple/40 bg-white dark:bg-slate-900/90 shadow-glow-purple/10 dark:shadow-glow-purple/20 animate-fadeIn">
-          <form onSubmit={handleAddMockExam} className="space-y-4">
+          <form onSubmit={handleAddMockExam} className="space-y-5">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-brand-purple dark:text-brand-purpleLight" />
-                Yeni Deneme Sonucu Ekle (mockExams)
-              </h3>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-brand-purple dark:text-brand-purpleLight" />
+                  Yeni Deneme Sonucu Ekle (Ders Bazlı)
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  Ders netlerini girdiğinde toplam TYT ve AYT netin otomatik hesaplanıp kaydedilir.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsAdding(false)}
@@ -827,135 +1025,102 @@ export const ExamScoresPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Direct TYT & AYT Net Inputs */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 rounded-2xl bg-sky-50/70 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/25">
-                <label
-                  htmlFor="mock-tyt-net"
-                  className="flex items-center justify-between text-xs font-semibold text-sky-700 dark:text-sky-300 mb-1.5"
-                >
-                  <span>TYT Toplam Neti</span>
-                  <span className="text-[11px] font-normal text-sky-600/80 dark:text-sky-400/80">
-                    Maks 120
-                  </span>
-                </label>
-                <input
-                  id="mock-tyt-net"
-                  type="number"
-                  step="0.25"
-                  min="0"
-                  max="120"
-                  placeholder="ör. 84.50"
-                  value={tytNetInput}
-                  onChange={(e) => {
-                    setTytNetInput(e.target.value);
-                    setFormError(null);
-                  }}
-                  className="w-full bg-white dark:bg-slate-950 border border-sky-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-base font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-sky-500 transition"
-                />
+            {/* TYT Subject Inputs Section */}
+            <div className="p-4 rounded-2xl bg-sky-50/70 dark:bg-sky-500/10 border border-sky-200 dark:border-sky-500/25 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs sm:text-sm font-bold text-sky-800 dark:text-sky-300">
+                    TYT Ders Netleri
+                  </h4>
+                  <p className="text-[11px] text-sky-700/75 dark:text-sky-400/80">
+                    Türkçe, Sosyal, Matematik ve Fen netlerini gir
+                  </p>
+                </div>
+                <div className="px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-950/90 border border-sky-200 dark:border-sky-500/30 text-xs font-bold text-sky-700 dark:text-sky-300 self-start sm:self-auto">
+                  TYT Toplam: {tytCalc.total !== null ? `${tytCalc.total.toFixed(2)} Net` : '—'}
+                </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-purple-50/70 dark:bg-brand-purple/10 border border-purple-200 dark:border-brand-purple/25">
-                <label
-                  htmlFor="mock-ayt-net"
-                  className="flex items-center justify-between text-xs font-semibold text-brand-purple dark:text-purple-300 mb-1.5"
-                >
-                  <span>AYT Toplam Neti ({isTytOnly ? 'İsteğe bağlı' : aytField})</span>
-                  <span className="text-[11px] font-normal text-brand-purple/80 dark:text-purple-400/80">
-                    Maks 80
-                  </span>
-                </label>
-                <input
-                  id="mock-ayt-net"
-                  type="number"
-                  step="0.25"
-                  min="0"
-                  max="80"
-                  placeholder="ör. 56.25"
-                  value={aytNetInput}
-                  onChange={(e) => {
-                    setAytNetInput(e.target.value);
-                    setFormError(null);
-                  }}
-                  className="w-full bg-white dark:bg-slate-950 border border-purple-200 dark:border-slate-800 rounded-xl px-3.5 py-2.5 text-base font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-brand-purple transition"
-                />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {TYT_FIELDS.map((field) => (
+                  <div
+                    key={field.key}
+                    className="p-3 rounded-xl bg-white dark:bg-slate-950/80 border border-sky-200/80 dark:border-slate-800"
+                  >
+                    <label
+                      htmlFor={`tyt-input-${field.key}`}
+                      className="flex items-center justify-between text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5"
+                    >
+                      <span>{field.label}</span>
+                      <span className="text-[10px] text-slate-400">/{field.max}</span>
+                    </label>
+                    <input
+                      id={`tyt-input-${field.key}`}
+                      type="number"
+                      step="0.25"
+                      min="0"
+                      max={field.max}
+                      placeholder="0.00"
+                      value={tytSubjectInputs[field.key] ?? ''}
+                      onChange={(e) => handleTytSubjectChange(field.key, e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-lg px-2.5 py-2 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-sky-500"
+                    />
+                  </div>
+                ))}
               </div>
             </div>
 
-            {/* Optional Subject Breakdown Accordion */}
-            <div>
-              <button
-                type="button"
-                onClick={() => setShowBreakdownCalculator((prev) => !prev)}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-purple dark:text-brand-purpleLight hover:underline"
-              >
-                {showBreakdownCalculator ? (
-                  <ChevronUp className="w-3.5 h-3.5" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5" />
-                )}
-                <span>Ders Bazlı Netlerden Otomatik Hesapla (Opsiyonel)</span>
-              </button>
-
-              {showBreakdownCalculator && (
-                <div className="mt-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 space-y-4 animate-fadeIn">
-                  <div>
-                    <div className="text-xs font-semibold text-sky-600 dark:text-sky-400 mb-2">
-                      TYT Ders Netleri:
-                    </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      {TYT_FIELDS.map((field) => (
-                        <div
-                          key={field.key}
-                          className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
-                        >
-                          <label className="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">
-                            {field.label} (Max {field.max})
-                          </label>
-                          <input
-                            type="number"
-                            step="0.25"
-                            min="0"
-                            max={field.max}
-                            placeholder="0.00"
-                            value={tytSubjectInputs[field.key] ?? ''}
-                            onChange={(e) => handleTytSubjectChange(field.key, e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-sky-500"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs font-semibold text-brand-purple dark:text-purple-400 mb-2">
-                      AYT ({aytField}) Ders Netleri:
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {activeAytFields.map((field) => (
-                        <div
-                          key={field.key}
-                          className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
-                        >
-                          <label className="block text-[11px] text-slate-600 dark:text-slate-400 mb-1">
-                            {field.label} (Max {field.max})
-                          </label>
-                          <input
-                            type="number"
-                            step="0.25"
-                            min="0"
-                            max={field.max}
-                            placeholder="0.00"
-                            value={aytSubjectInputs[field.key] ?? ''}
-                            onChange={(e) => handleAytSubjectChange(field.key, e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-brand-purple"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+            {/* AYT Subject Inputs Section */}
+            <div className="p-4 rounded-2xl bg-purple-50/70 dark:bg-brand-purple/10 border border-purple-200 dark:border-brand-purple/25 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs sm:text-sm font-bold text-brand-purpleDark dark:text-purple-300">
+                    AYT ({aytField}) Ders Netleri {isTytOnly ? '(İsteğe Bağlı)' : ''}
+                  </h4>
+                  <p className="text-[11px] text-brand-purple/80 dark:text-purple-400/80">
+                    {activeAytFields.map((f) => f.label).join(', ')} netlerini gir
+                  </p>
                 </div>
-              )}
+                <div className="px-3.5 py-1.5 rounded-xl bg-white dark:bg-slate-950/90 border border-purple-200 dark:border-brand-purple/35 text-xs font-bold text-brand-purple dark:text-purple-300 self-start sm:self-auto">
+                  AYT Toplam: {aytCalc.total !== null ? `${aytCalc.total.toFixed(2)} Net` : '—'}
+                </div>
+              </div>
+
+              <div
+                className={`grid gap-3 ${
+                  activeAytFields.length === 1
+                    ? 'grid-cols-1 sm:max-w-xs'
+                    : activeAytFields.length === 3
+                    ? 'grid-cols-1 sm:grid-cols-3'
+                    : 'grid-cols-2 sm:grid-cols-4'
+                }`}
+              >
+                {activeAytFields.map((field) => (
+                  <div
+                    key={field.key}
+                    className="p-3 rounded-xl bg-white dark:bg-slate-950/80 border border-purple-200/80 dark:border-slate-800"
+                  >
+                    <label
+                      htmlFor={`ayt-input-${field.key}`}
+                      className="flex items-center justify-between text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5"
+                    >
+                      <span>{field.label}</span>
+                      <span className="text-[10px] text-slate-400">/{field.max}</span>
+                    </label>
+                    <input
+                      id={`ayt-input-${field.key}`}
+                      type="number"
+                      step="0.25"
+                      min="0"
+                      max={field.max}
+                      placeholder="0.00"
+                      value={aytSubjectInputs[field.key] ?? ''}
+                      onChange={(e) => handleAytSubjectChange(field.key, e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-lg px-2.5 py-2 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:border-brand-purple"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
 
             {formError && (
@@ -965,28 +1130,41 @@ export const ExamScoresPage: React.FC = () => {
               </div>
             )}
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setIsAdding(false)}
-                className="px-4 py-2 text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-              >
-                Vazgeç
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-brand-purple hover:bg-brand-purpleHover disabled:opacity-60 text-white text-xs font-semibold rounded-xl transition shadow-md shadow-brand-purple/20"
-              >
-                {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                <span>{isSubmitting ? 'Kaydediliyor...' : 'Sonucu Kaydet'}</span>
-              </button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+                <span>Otomatik Toplam:</span>
+                <span className="font-bold text-sky-600 dark:text-sky-400">
+                  TYT {tytCalc.total !== null ? tytCalc.total.toFixed(2) : '—'}
+                </span>
+                <span>•</span>
+                <span className="font-bold text-brand-purple dark:text-purple-400">
+                  AYT {aytCalc.total !== null ? aytCalc.total.toFixed(2) : '—'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAdding(false)}
+                  className="px-4 py-2 text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                >
+                  Vazgeç
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-brand-purple hover:bg-brand-purpleHover disabled:opacity-60 text-white text-xs font-semibold rounded-xl transition shadow-md shadow-brand-purple/20"
+                >
+                  {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isSubmitting ? 'Kaydediliyor...' : 'Sonucu Kaydet'}</span>
+                </button>
+              </div>
             </div>
           </form>
         </Card>
       )}
 
-      {/* Past Exam Records List */}
+      {/* Past Exam Records List with Subject Breakdowns */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -1006,77 +1184,119 @@ export const ExamScoresPage: React.FC = () => {
               Henüz deneme sonucu girilmedi
             </h3>
             <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 max-w-md mx-auto">
-              &quot;Yeni Deneme Ekle&quot; butonuna basarak TYT ve AYT netlerini kaydedebilir, grafikte karşılaştırabilirsin.
+              &quot;Yeni Deneme Ekle&quot; butonuna basarak ders bazlı TYT ve AYT netlerini kaydedebilir, hem genel hem de ders bazlı trendleri inceleyebilirsin.
             </p>
           </Card>
         ) : (
-          allExams.map((exam) => (
-            <Card
-              key={`${exam.source}-${exam.id}`}
-              className="p-5 hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200"
-            >
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-base font-semibold text-slate-900 dark:text-white tracking-tight">
-                      {exam.name}
-                    </h3>
-                    {exam.tytNet !== null && <Badge variant="midnight">TYT</Badge>}
+          allExams.map((exam) => {
+            const tytChips = exam.tytBreakdown
+              ? (Object.entries(exam.tytBreakdown) as Array<[MockExamSubjectKey, number]>).filter(
+                  ([, val]) => typeof val === 'number'
+                )
+              : [];
+            const aytChips = exam.aytBreakdown
+              ? (Object.entries(exam.aytBreakdown) as Array<[MockExamSubjectKey, number]>).filter(
+                  ([, val]) => typeof val === 'number'
+                )
+              : [];
+
+            return (
+              <Card
+                key={`${exam.source}-${exam.id}`}
+                className="p-5 hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 space-y-3.5"
+              >
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-semibold text-slate-900 dark:text-white tracking-tight">
+                        {exam.name}
+                      </h3>
+                      {exam.tytNet !== null && <Badge variant="midnight">TYT</Badge>}
+                      {exam.aytNet !== null && (
+                        <Badge variant="purple">
+                          AYT{exam.field ? ` · ${exam.field}` : ''}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                        {exam.date}
+                      </span>
+                      {exam.publisher && (
+                        <>
+                          <span className="text-slate-400 dark:text-slate-600">•</span>
+                          <span>{exam.publisher}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
+                    {exam.tytNet !== null && (
+                      <div className="px-4 py-2 rounded-xl bg-sky-50 dark:bg-sky-500/15 border border-sky-200 dark:border-sky-500/30 text-center min-w-[92px]">
+                        <span className="text-[10px] text-sky-700 dark:text-sky-300 block font-semibold uppercase">
+                          TYT Net
+                        </span>
+                        <span className="text-base font-extrabold text-slate-900 dark:text-white">
+                          {exam.tytNet.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+
                     {exam.aytNet !== null && (
-                      <Badge variant="purple">
-                        AYT{exam.field ? ` · ${exam.field}` : ''}
-                      </Badge>
+                      <div className="px-4 py-2 rounded-xl bg-purple-50 dark:bg-brand-purple/20 border border-purple-200 dark:border-brand-purple/35 text-center min-w-[92px]">
+                        <span className="text-[10px] text-brand-purple dark:text-purple-300 block font-semibold uppercase">
+                          AYT Net
+                        </span>
+                        <span className="text-base font-extrabold text-slate-900 dark:text-white">
+                          {exam.aytNet.toFixed(2)}
+                        </span>
+                      </div>
                     )}
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
-                      {exam.date}
-                    </span>
-                    {exam.publisher && (
-                      <>
-                        <span className="text-slate-400 dark:text-slate-600">•</span>
-                        <span>{exam.publisher}</span>
-                      </>
-                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteExam(exam)}
+                      className="p-2 rounded-xl text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition"
+                      title="Denemeyi Sil"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
-                  {exam.tytNet !== null && (
-                    <div className="px-4 py-2 rounded-xl bg-sky-50 dark:bg-sky-500/15 border border-sky-200 dark:border-sky-500/30 text-center min-w-[92px]">
-                      <span className="text-[10px] text-sky-700 dark:text-sky-300 block font-semibold uppercase">
-                        TYT Net
+                {/* Subject Breakdown Pills */}
+                {(tytChips.length > 0 || aytChips.length > 0) && (
+                  <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-200/80 dark:border-slate-800/80">
+                    {tytChips.map(([key, val]) => (
+                      <span
+                        key={`tyt-${key}`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] font-medium text-slate-600 dark:text-slate-300"
+                      >
+                        <span className="text-sky-600 dark:text-sky-400 font-semibold">
+                          TYT {SUBJECT_SHORT_LABELS[key] ?? key}:
+                        </span>
+                        <span className="font-bold text-slate-900 dark:text-white">{val}</span>
                       </span>
-                      <span className="text-base font-extrabold text-slate-900 dark:text-white">
-                        {exam.tytNet.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
+                    ))}
 
-                  {exam.aytNet !== null && (
-                    <div className="px-4 py-2 rounded-xl bg-purple-50 dark:bg-brand-purple/20 border border-purple-200 dark:border-brand-purple/35 text-center min-w-[92px]">
-                      <span className="text-[10px] text-brand-purple dark:text-purple-300 block font-semibold uppercase">
-                        AYT Net
+                    {aytChips.map(([key, val]) => (
+                      <span
+                        key={`ayt-${key}`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[11px] font-medium text-slate-600 dark:text-slate-300"
+                      >
+                        <span className="text-brand-purple dark:text-purple-400 font-semibold">
+                          AYT {SUBJECT_SHORT_LABELS[key] ?? key}:
+                        </span>
+                        <span className="font-bold text-slate-900 dark:text-white">{val}</span>
                       </span>
-                      <span className="text-base font-extrabold text-slate-900 dark:text-white">
-                        {exam.aytNet.toFixed(2)}
-                      </span>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteExam(exam)}
-                    className="p-2 rounded-xl text-slate-400 dark:text-slate-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition"
-                    title="Denemeyi Sil"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </Card>
-          ))
+                    ))}
+                  </div>
+                )}
+              </Card>
+            );
+          })
         )}
       </div>
     </div>

@@ -13,7 +13,8 @@ import {
   Sliders,
   Check,
   Loader2,
-  AlertTriangle
+  AlertTriangle,
+  Maximize2
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -28,6 +29,8 @@ import {
 import { Card } from '../../components/common/Card';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useFullscreenTimer } from '../../hooks/useFullscreenTimer';
+import { FullscreenFocusView } from '../../components/timer/FullscreenFocusView';
 import { getLocalDateKey } from '../../utils/date';
 import {
   fetchStudyStats,
@@ -41,6 +44,15 @@ const TURKISH_WEEKDAYS = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 export const StudyTimerPage: React.FC = () => {
   const { user } = useAuth();
   const { isDark } = useTheme();
+  const {
+    containerRef,
+    isFullscreen,
+    controlsVisible,
+    enterFullscreen,
+    exitFullscreen,
+    handleActivity,
+    keepControlsVisible
+  } = useFullscreenTimer();
   const userId = user?.uid;
   const chartGridStroke = isDark ? '#1E293B' : '#E2E8F0';
   const chartDotFill = isDark ? '#090D16' : '#FFFFFF';
@@ -334,19 +346,31 @@ export const StudyTimerPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Sound Toggle */}
-        <button
-          onClick={() => setSoundEnabled(!soundEnabled)}
-          className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition self-start sm:self-auto ${
-            soundEnabled 
-              ? 'bg-brand-purple/10 dark:bg-slate-900 text-brand-purple dark:text-brand-purpleLight border-brand-purple/30' 
-              : 'bg-white dark:bg-slate-900 text-slate-500 border-slate-200 dark:border-slate-800'
-          }`}
-          title={soundEnabled ? 'Zil Sesi Açık' : 'Zil Sesi Kapalı'}
-        >
-          {soundEnabled ? <Volume2 className="w-4 h-4 text-brand-purple dark:text-brand-purpleLight" /> : <VolumeX className="w-4 h-4" />}
-          <span>{soundEnabled ? 'Zil Aktif' : 'Zil Sessizde'}</span>
-        </button>
+        {/* Header Controls: Focus Mode Fullscreen & Sound Toggle */}
+        <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => void enterFullscreen()}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-brand-purple to-indigo-600 hover:from-brand-purpleHover hover:to-indigo-500 text-white shadow-md shadow-brand-purple/20 transition"
+            title="Dikkat dağıtan tüm öğeleri gizle ve tam ekrana geç"
+          >
+            <Maximize2 className="w-4 h-4" />
+            <span>Tam Ekran (Focus Mode)</span>
+          </button>
+
+          <button
+            onClick={() => setSoundEnabled(!soundEnabled)}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border transition ${
+              soundEnabled 
+                ? 'bg-brand-purple/10 dark:bg-slate-900 text-brand-purple dark:text-brand-purpleLight border-brand-purple/30' 
+                : 'bg-white dark:bg-slate-900 text-slate-500 border-slate-200 dark:border-slate-800'
+            }`}
+            title={soundEnabled ? 'Zil Sesi Açık' : 'Zil Sesi Kapalı'}
+          >
+            {soundEnabled ? <Volume2 className="w-4 h-4 text-brand-purple dark:text-brand-purpleLight" /> : <VolumeX className="w-4 h-4" />}
+            <span>{soundEnabled ? 'Zil Aktif' : 'Zil Sessizde'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Firestore Stats Error Alert */}
@@ -378,7 +402,25 @@ export const StudyTimerPage: React.FC = () => {
         </div>
       )}
 
-      {/* Main Focus Timer Card with Circular Progress Ring */}
+      {/* Main Focus Timer Card / Fullscreen Focus Stage Container */}
+      <div ref={containerRef}>
+        {isFullscreen ? (
+          <FullscreenFocusView
+            mode={mode}
+            formattedTime={formattedTime}
+            progressRatio={progressRatio}
+            isRunning={isRunning}
+            isDark={isDark}
+            controlsVisible={controlsVisible}
+            subtitle={mode === 'work' ? 'Hedef: Tam Konsantrasyon' : 'Rahatla & Dinlen'}
+            onStart={handleStart}
+            onPause={handlePause}
+            onReset={handleReset}
+            onExitFullscreen={() => void exitFullscreen()}
+            onUserActivity={handleActivity}
+            onControlsHover={keepControlsVisible}
+          />
+        ) : (
       <Card className="p-8 sm:p-10 border-slate-200 dark:border-slate-800/90 bg-white dark:bg-[#0f172a]/90 relative overflow-hidden flex flex-col items-center justify-center text-center">
         {/* Subtle Ambient Glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-brand-purple/10 rounded-full blur-3xl pointer-events-none" />
@@ -506,6 +548,15 @@ export const StudyTimerPage: React.FC = () => {
           >
             <RotateCcw className="w-5 h-5" />
           </button>
+
+          <button
+            type="button"
+            onClick={() => void enterFullscreen()}
+            className="p-3.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-brand-purple hover:text-brand-purpleHover border border-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 dark:text-brand-purpleLight dark:hover:text-white dark:border-slate-800 transition"
+            title="Tam Ekran (Focus Mode)"
+          >
+            <Maximize2 className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Duration Customization / Preset Pills */}
@@ -616,6 +667,8 @@ export const StudyTimerPage: React.FC = () => {
           </form>
         </div>
       </Card>
+        )}
+      </div>
 
       {/* Today's Total Study Time Banner (Attention Grabbing Card) */}
       <Card className="p-6 bg-gradient-to-r from-indigo-50 via-purple-50 to-slate-100 dark:from-[#11192e] dark:via-[#161c3d] dark:to-[#0f172a] border-slate-200 dark:border-slate-800">
