@@ -9,7 +9,7 @@ import {
   doc
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { StudyTask, TrialExam, UserOnboardingProfile } from '../types';
+import type { StudySession, StudyTask, TrialExam, UserOnboardingProfile } from '../types';
 
 export interface StudyStatsData {
   dailyMinutes: Record<string, number>;
@@ -29,6 +29,7 @@ export const EMPTY_STUDY_STATS: StudyStatsRecord = {
 const TASKS_COLLECTION = 'tasks';
 const EXAMS_COLLECTION = 'exams';
 const STATS_COLLECTION = 'stats';
+const STUDY_SESSIONS_COLLECTION = 'studySessions';
 const USER_PROFILES_COLLECTION = 'userProfiles';
 const LEGACY_PROFILES_COLLECTION = 'profiles';
 
@@ -274,4 +275,66 @@ export const saveUserProfileToFirestore = async (
     completedAt: profile.completedAt,
     updatedAt: Date.now()
   });
+};
+
+// ==========================================
+// STUDY SESSIONS (Canlı Çalışma Odası - Pomodoro)
+// ==========================================
+
+export const fetchStudySessions = async (userId: string): Promise<StudySession[]> => {
+  const q = query(collection(db, STUDY_SESSIONS_COLLECTION), where('userId', '==', userId));
+  const snapshot = await getDocs(q);
+
+  const items: StudySession[] = snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      userId: String(data.userId ?? userId),
+      date: typeof data.date === 'string' ? data.date : '',
+      minutes: typeof data.minutes === 'number' ? data.minutes : 25,
+      ...(typeof data.focusTopic === 'string' && data.focusTopic.trim()
+        ? { focusTopic: data.focusTopic }
+        : {}),
+      completedAt:
+        typeof data.completedAt === 'string' ? data.completedAt : new Date().toISOString(),
+      createdAt: typeof data.createdAt === 'number' ? data.createdAt : 0
+    };
+  });
+
+  items.sort((a, b) => b.createdAt - a.createdAt);
+  return items;
+};
+
+export const addStudySessionToFirestore = async (
+  userId: string,
+  sessionData: {
+    date: string;
+    minutes: number;
+    focusTopic?: string;
+  }
+): Promise<StudySession> => {
+  const createdAt = Date.now();
+  const completedAt = new Date().toISOString();
+  const cleanTopic = sessionData.focusTopic?.trim();
+
+  const payload = {
+    userId,
+    date: sessionData.date,
+    minutes: sessionData.minutes,
+    completedAt,
+    createdAt,
+    ...(cleanTopic ? { focusTopic: cleanTopic } : {})
+  };
+
+  const docRef = await addDoc(collection(db, STUDY_SESSIONS_COLLECTION), payload);
+
+  return {
+    id: docRef.id,
+    userId,
+    date: sessionData.date,
+    minutes: sessionData.minutes,
+    completedAt,
+    createdAt,
+    ...(cleanTopic ? { focusTopic: cleanTopic } : {})
+  };
 };

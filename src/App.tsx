@@ -10,6 +10,7 @@ import { OnboardingPage } from './pages/Onboarding/OnboardingPage';
 import { DashboardPage } from './pages/Dashboard/DashboardPage';
 import { DailySchedulePage } from './pages/DailySchedule/DailySchedulePage';
 import { StudyTimerPage } from './pages/StudyTimer/StudyTimerPage';
+import { StudyRoom } from './pages/StudyRoom';
 import { ExamScoresPage } from './pages/ExamScores/ExamScoresPage';
 import { AiCoachPage } from './pages/AiCoach/AiCoachPage';
 import { ProfilePage } from './pages/Profile/ProfilePage';
@@ -37,6 +38,7 @@ export const App: React.FC = () => {
                   <Route index element={<DashboardPage />} />
                   <Route path="program" element={<DailySchedulePage />} />
                   <Route path="sayac" element={<StudyTimerPage />} />
+                  <Route path="pomodoro" element={<StudyRoom />} />
                   <Route path="denemeler" element={<ExamScoresPage />} />
                   <Route path="koc" element={<AiCoachPage />} />
                   <Route path="profile" element={<ProfilePage />} />

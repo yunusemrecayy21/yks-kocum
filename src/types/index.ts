@@ -88,3 +88,13 @@ export interface TrialExam {
     total: number;
   };
 }
+
+export interface StudySession {
+  id: string;
+  userId: string;
+  date: string; // YYYY-MM-DD
+  minutes: number;
+  focusTopic?: string;
+  completedAt: string;
+  createdAt: number;
+}

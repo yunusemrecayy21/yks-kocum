@@ -5,6 +5,7 @@ import {
   CheckSquare, 
   BarChart3, 
   Timer,
+  Headphones,
   Bot,
   User,
   Sparkles, 
@@ -57,6 +58,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       path: '/sayac',
       icon: Timer,
       badge: 'Odak',
+    },
+    {
+      name: 'Çalışma Odası / Pomodoro',
+      path: '/pomodoro',
+      icon: Headphones,
+      badge: 'Canlı',
     },
     {
       name: 'Deneme Netlerim',
