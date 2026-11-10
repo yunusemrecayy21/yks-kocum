@@ -27,10 +27,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const displayUsername = user?.username || 'Öğrenci';
   const initials = displayUsername.slice(0, 2).toUpperCase();
 
-  const handleLogout = () => {
-    logout();
-    onClose();
-    navigate('/auth', { replace: true });
+  const handleLogout = async () => {
+    try {
+      await logout();
+      onClose();
+      navigate('/auth', { replace: true });
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
   };
 
   const navigationItems = [

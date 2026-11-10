@@ -9,7 +9,8 @@ import {
   Compass,
   ArrowRight,
   AlertTriangle,
-  ArrowLeft
+  ArrowLeft,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import type { GradeLevel, StudyField } from '../../types';
@@ -49,6 +50,7 @@ export const OnboardingPage: React.FC = () => {
     onboardingProfile?.targetDepartment ?? ''
   );
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const isSelectedTytOnly =
     gradeLevel === '9. Sınıf' ||
@@ -61,8 +63,9 @@ export const OnboardingPage: React.FC = () => {
     targetUniversity.trim().length > 0 &&
     targetDepartment.trim().length > 0;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setErrorMsg(null);
 
     if (!gradeLevel || !studyField || !targetUniversity.trim() || !targetDepartment.trim()) {
@@ -70,14 +73,22 @@ export const OnboardingPage: React.FC = () => {
       return;
     }
 
-    saveOnboardingProfile({
-      gradeLevel,
-      studyField,
-      targetUniversity: targetUniversity.trim(),
-      targetDepartment: targetDepartment.trim()
-    });
+    setIsSubmitting(true);
+    try {
+      await saveOnboardingProfile({
+        gradeLevel,
+        studyField,
+        targetUniversity: targetUniversity.trim(),
+        targetDepartment: targetDepartment.trim()
+      });
 
-    navigate('/', { replace: true });
+      navigate('/', { replace: true });
+    } catch (err) {
+      console.error('Firestore profile save error:', err);
+      setErrorMsg('Profil bilgileri kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -259,14 +270,24 @@ export const OnboardingPage: React.FC = () => {
           {/* Submit CTA */}
           <button
             type="submit"
+            disabled={isSubmitting}
             className={`w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
-              isFormComplete
+              isFormComplete && !isSubmitting
                 ? 'bg-gradient-to-r from-brand-purple to-indigo-600 hover:from-brand-purpleHover hover:to-indigo-500 text-white shadow-lg shadow-brand-purple/25 hover:scale-[1.01] active:scale-[0.99]'
                 : 'bg-slate-800/80 text-slate-400 border border-slate-700/80 cursor-not-allowed'
             }`}
           >
-            <span>{isEditMode ? 'Değişiklikleri Kaydet' : 'Kurulumu Tamamla ve Başla'}</span>
-            <ArrowRight className="w-4 h-4" />
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Kaydediliyor...</span>
+              </>
+            ) : (
+              <>
+                <span>{isEditMode ? 'Değişiklikleri Kaydet' : 'Kurulumu Tamamla ve Başla'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </form>
       </div>

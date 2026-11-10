@@ -116,7 +116,7 @@ const CustomChartTooltip: React.FC<CustomTooltipProps> = ({ active, payload }) =
 
 export const ExamScoresPage: React.FC = () => {
   const { user, onboardingProfile, isTytOnly } = useAuth();
-  const userId = user?.id ?? 'guest';
+  const userId = user?.uid;
   const studyField = onboardingProfile?.studyField ?? 'Sayısal';
   const aytField: Exclude<StudyField, 'Sadece TYT'> =
     studyField === 'Sadece TYT' ? 'Sayısal' : studyField;
@@ -137,6 +137,12 @@ export const ExamScoresPage: React.FC = () => {
 
   // Fetch saved exams from Firestore on mount / user change
   useEffect(() => {
+    if (!userId) {
+      setExams([]);
+      setIsLoading(false);
+      return;
+    }
+
     let isMounted = true;
 
     const loadExams = async () => {
@@ -217,7 +223,7 @@ export const ExamScoresPage: React.FC = () => {
 
   const handleAddExam = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || isSubmitting) return;
+    if (!userId || !name.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
     setErrorMsg(null);

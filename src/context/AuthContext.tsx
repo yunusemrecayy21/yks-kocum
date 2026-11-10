@@ -1,9 +1,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import type { AuthUser, StoredUserRecord, UserOnboardingProfile } from '../types';
-
-const USERS_STORAGE_KEY = 'yks_auth_users';
-const SESSION_STORAGE_KEY = 'yks_auth_session';
-const PROFILE_STORAGE_PREFIX = 'yks_onboarding_profile_';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from 'firebase/auth';
+import type { User as FirebaseUser } from 'firebase/auth';
+import { auth } from '../firebase';
+import {
+  fetchUserProfile,
+  saveUserProfileToFirestore
+} from '../services/firestoreService';
+import type { AuthUser, UserOnboardingProfile } from '../types';
 
 interface AuthResult {
   success: boolean;
@@ -13,61 +21,17 @@ interface AuthResult {
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
+  isAuthLoading: boolean;
   onboardingProfile: UserOnboardingProfile | null;
   hasCompletedOnboarding: boolean;
   isTytOnly: boolean;
-  register: (username: string, password: string) => AuthResult;
-  login: (username: string, password: string) => AuthResult;
-  logout: () => void;
-  saveOnboardingProfile: (profile: Omit<UserOnboardingProfile, 'completedAt'>) => void;
+  register: (email: string, password: string) => Promise<AuthResult>;
+  login: (email: string, password: string) => Promise<AuthResult>;
+  logout: () => Promise<void>;
+  saveOnboardingProfile: (profile: Omit<UserOnboardingProfile, 'completedAt'>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-const readStoredUsers = (): StoredUserRecord[] => {
-  try {
-    const raw = localStorage.getItem(USERS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const readStoredSession = (): AuthUser | null => {
-  try {
-    const raw = localStorage.getItem(SESSION_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed.username === 'string' && typeof parsed.id === 'string') {
-      return parsed;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-};
-
-const readOnboardingProfile = (userId: string): UserOnboardingProfile | null => {
-  try {
-    const raw = localStorage.getItem(`${PROFILE_STORAGE_PREFIX}${userId}`);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (
-      parsed &&
-      typeof parsed.gradeLevel === 'string' &&
-      typeof parsed.studyField === 'string' &&
-      typeof parsed.targetUniversity === 'string' &&
-      typeof parsed.targetDepartment === 'string'
-    ) {
-      return parsed;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-};
 
 export const checkIsTytOnly = (profile: UserOnboardingProfile | null): boolean => {
   if (!profile) return false;
@@ -78,79 +42,109 @@ export const checkIsTytOnly = (profile: UserOnboardingProfile | null): boolean =
   );
 };
 
+const mapFirebaseUser = (fbUser: FirebaseUser): AuthUser => {
+  const email = fbUser.email ?? '';
+  const derivedName =
+    fbUser.displayName || (email.includes('@') ? email.split('@')[0] : 'Öğrenci');
+
+  return {
+    uid: fbUser.uid,
+    id: fbUser.uid,
+    email,
+    username: derivedName,
+    createdAt: fbUser.metadata.creationTime ?? new Date().toISOString()
+  };
+};
+
+const translateFirebaseAuthError = (error: unknown): string => {
+  const code = (error as { code?: string })?.code ?? '';
+
+  switch (code) {
+    case 'auth/email-already-in-use':
+      return 'Bu e-posta adresi zaten kullanımda. Lütfen giriş yapın veya farklı bir e-posta deneyin.';
+    case 'auth/invalid-email':
+      return 'Lütfen geçerli bir e-posta adresi girin.';
+    case 'auth/weak-password':
+      return 'Şifreniz çok zayıf. En az 6 karakter uzunluğunda güçlü bir şifre belirleyin.';
+    case 'auth/user-not-found':
+      return 'Bu e-posta adresine kayıtlı bir hesap bulunamadı. Lütfen önce kayıt olun.';
+    case 'auth/wrong-password':
+      return 'Girdiğiniz şifre hatalı. Lütfen kontrol edip tekrar deneyin.';
+    case 'auth/invalid-credential':
+      return 'E-posta adresi veya şifre hatalı. Bilgilerinizi kontrol edip tekrar deneyin.';
+    case 'auth/too-many-requests':
+      return 'Çok fazla başarısız giriş denemesi yaptınız. Lütfen birkaç dakika sonra tekrar deneyin.';
+    case 'auth/network-request-failed':
+      return 'İnternet bağlantısı kurulamadı. Lütfen bağlantınızı kontrol edin.';
+    case 'auth/operation-not-allowed':
+      return 'Firebase Console üzerinde E-posta/Şifre ile giriş yöntemi henüz etkinleştirilmemiş.';
+    default:
+      return 'Kimlik doğrulama işlemi sırasında bir hata oluştu. Lütfen tekrar deneyin.';
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<AuthUser | null>(() => readStoredSession());
-  const [onboardingProfile, setOnboardingProfile] = useState<UserOnboardingProfile | null>(() => {
-    const session = readStoredSession();
-    return session ? readOnboardingProfile(session.id) : null;
-  });
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [onboardingProfile, setOnboardingProfile] = useState<UserOnboardingProfile | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    if (user) {
-      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(user));
-    } else {
-      localStorage.removeItem(SESSION_STORAGE_KEY);
-    }
-  }, [user]);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        setUser(null);
+        setOnboardingProfile(null);
+        setIsAuthLoading(false);
+        return;
+      }
 
-  const register = (username: string, password: string): AuthResult => {
-    const trimmedUsername = username.trim();
-    const users = readStoredUsers();
+      const mappedUser = mapFirebaseUser(firebaseUser);
+      setUser(mappedUser);
 
-    const exists = users.some(
-      (u) => u.username.toLowerCase() === trimmedUsername.toLowerCase()
-    );
+      try {
+        const profile = await fetchUserProfile(firebaseUser.uid);
+        setOnboardingProfile(profile);
+      } catch (err) {
+        console.error('Firestore profile fetch error:', err);
+        setOnboardingProfile(null);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    });
 
-    if (exists) {
+    return () => unsubscribe();
+  }, []);
+
+  const register = async (email: string, password: string): Promise<AuthResult> => {
+    try {
+      await createUserWithEmailAndPassword(auth, email.trim(), password);
+      return { success: true };
+    } catch (error) {
       return {
         success: false,
-        error: 'Bu kullanıcı adı zaten kayıtlı. Lütfen farklı bir kullanıcı adı seçin.'
+        error: translateFirebaseAuthError(error)
       };
     }
-
-    const newUser: StoredUserRecord = {
-      id: Date.now().toString(),
-      username: trimmedUsername,
-      password,
-      createdAt: new Date().toISOString()
-    };
-
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify([...users, newUser]));
-    return { success: true };
   };
 
-  const login = (username: string, password: string): AuthResult => {
-    const trimmedUsername = username.trim();
-    const users = readStoredUsers();
-
-    const matchedUser = users.find(
-      (u) => u.username.toLowerCase() === trimmedUsername.toLowerCase()
-    );
-
-    if (!matchedUser || matchedUser.password !== password) {
+  const login = async (email: string, password: string): Promise<AuthResult> => {
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+      return { success: true };
+    } catch (error) {
       return {
         success: false,
-        error: 'Kullanıcı adı veya şifre hatalı. Kayıtlı değilseniz lütfen önce kayıt olun.'
+        error: translateFirebaseAuthError(error)
       };
     }
-
-    const sessionUser: AuthUser = {
-      id: matchedUser.id,
-      username: matchedUser.username,
-      createdAt: matchedUser.createdAt
-    };
-
-    setUser(sessionUser);
-    setOnboardingProfile(readOnboardingProfile(sessionUser.id));
-    return { success: true };
   };
 
-  const logout = () => {
-    setUser(null);
-    setOnboardingProfile(null);
+  const logout = async (): Promise<void> => {
+    await signOut(auth);
   };
 
-  const saveOnboardingProfile = (profileData: Omit<UserOnboardingProfile, 'completedAt'>) => {
+  const saveOnboardingProfile = async (
+    profileData: Omit<UserOnboardingProfile, 'completedAt'>
+  ): Promise<void> => {
     if (!user) return;
     const fullProfile: UserOnboardingProfile = {
       ...profileData,
@@ -158,7 +152,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       targetDepartment: profileData.targetDepartment.trim(),
       completedAt: new Date().toISOString()
     };
-    localStorage.setItem(`${PROFILE_STORAGE_PREFIX}${user.id}`, JSON.stringify(fullProfile));
+
+    await saveUserProfileToFirestore(user.uid, fullProfile);
     setOnboardingProfile(fullProfile);
   };
 
@@ -167,6 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       value={{
         user,
         isAuthenticated: Boolean(user),
+        isAuthLoading,
         onboardingProfile,
         hasCompletedOnboarding: Boolean(onboardingProfile),
         isTytOnly: checkIsTytOnly(onboardingProfile),

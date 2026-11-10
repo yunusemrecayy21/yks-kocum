@@ -1,11 +1,9 @@
 export interface AuthUser {
+  uid: string;
   id: string;
+  email: string;
   username: string;
   createdAt: string;
-}
-
-export interface StoredUserRecord extends AuthUser {
-  password: string;
 }
 
 export type GradeLevel = '9. Sınıf' | '10. Sınıf' | '11. Sınıf' | '12. Sınıf' | 'Mezun';

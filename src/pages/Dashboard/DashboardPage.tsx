@@ -30,7 +30,7 @@ import type { StudyTask, TrialExam } from '../../types';
 
 export const DashboardPage: React.FC = () => {
   const { user, onboardingProfile, isTytOnly } = useAuth();
-  const userId = user?.id ?? 'guest';
+  const userId = user?.uid;
   const displayUsername = user?.username || 'Öğrenci';
   const targetUniversity = onboardingProfile?.targetUniversity || 'Hedef Üniversite';
   const targetDepartment = onboardingProfile?.targetDepartment || 'Hedef Bölüm';
@@ -45,6 +45,14 @@ export const DashboardPage: React.FC = () => {
 
   // Load real data from Firebase Firestore on mount / user change
   useEffect(() => {
+    if (!userId) {
+      setTasks([]);
+      setExams([]);
+      setStudyStats(EMPTY_STUDY_STATS);
+      setIsLoading(false);
+      return;
+    }
+
     let isMounted = true;
 
     const loadDashboardData = async () => {

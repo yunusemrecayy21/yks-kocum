@@ -40,7 +40,7 @@ const SUBJECT_LIST: Subject[] = [
 
 export const DailySchedulePage: React.FC = () => {
   const { user, isTytOnly } = useAuth();
-  const userId = user?.id ?? 'guest';
+  const userId = user?.uid;
 
   const [tasks, setTasks] = useState<StudyTask[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -58,6 +58,12 @@ export const DailySchedulePage: React.FC = () => {
 
   // Fetch tasks from Firestore on mount / user change
   useEffect(() => {
+    if (!userId) {
+      setTasks([]);
+      setIsLoading(false);
+      return;
+    }
+
     let isMounted = true;
 
     const loadTasks = async () => {
@@ -130,7 +136,7 @@ export const DailySchedulePage: React.FC = () => {
 
   const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!topic.trim() || isSubmitting) return;
+    if (!userId || !topic.trim() || isSubmitting) return;
 
     setIsSubmitting(true);
     setErrorMsg(null);

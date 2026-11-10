@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Menu, Calendar, Clock, Bell, BellOff, CheckCheck } from 'lucide-react';
+import { Menu, Calendar, Clock, Bell, BellOff, CheckCheck, LogOut } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface HeaderProps {
   onMenuToggle: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
+  const { logout } = useAuth();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [markedReadFeedback, setMarkedReadFeedback] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
 
   const todayFormatted = new Intl.DateTimeFormat('tr-TR', {
@@ -55,6 +58,17 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
     setTimeout(() => {
       setMarkedReadFeedback(false);
     }, 1500);
+  };
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+    setIsLoggingOut(true);
+    try {
+      await logout();
+    } catch (err) {
+      console.error('Sign out error:', err);
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -143,6 +157,19 @@ export const Header: React.FC<HeaderProps> = ({ onMenuToggle }) => {
             </div>
           )}
         </div>
+
+        {/* Sign Out Button */}
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          title="Çıkış Yap"
+          aria-label="Çıkış Yap"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:text-rose-300 bg-slate-900/80 hover:bg-rose-500/10 border border-slate-800 hover:border-rose-500/30 disabled:opacity-60 transition-all duration-200"
+        >
+          <LogOut className="w-4 h-4" />
+          <span className="hidden sm:inline">Çıkış Yap</span>
+        </button>
       </div>
     </header>
   );

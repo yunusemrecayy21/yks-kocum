@@ -1,16 +1,15 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   GraduationCap,
-  User,
+  Mail,
   Lock,
   Eye,
   EyeOff,
   LogIn,
   UserPlus,
   AlertTriangle,
-  CheckCircle2,
-  Sparkles
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -19,27 +18,39 @@ interface ValidationResult {
   missingRules: string[];
 }
 
-const validateCredentials = (username: string, password: string): ValidationResult => {
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const validateCredentials = (
+  email: string,
+  password: string,
+  mode: 'login' | 'register'
+): ValidationResult => {
   const missingRules: string[] = [];
 
-  if (username.trim().length < 4) {
-    missingRules.push('Kullanıcı adı en az 4 karakter uzunluğunda olmalıdır.');
+  if (!EMAIL_REGEX.test(email.trim())) {
+    missingRules.push('Lütfen geçerli bir e-posta adresi girin (ör. ad@alanadi.com).');
   }
 
-  if (!/[A-ZÇĞİÖŞÜ]/.test(password)) {
-    missingRules.push('Şifre en az 1 büyük harf içermelidir.');
+  if (password.length < 6) {
+    missingRules.push('Şifre en az 6 karakter uzunluğunda olmalıdır.');
   }
 
-  if (!/[a-zçğıöşü]/.test(password)) {
-    missingRules.push('Şifre en az 1 küçük harf içermelidir.');
-  }
+  if (mode === 'register') {
+    if (!/[A-ZÇĞİÖŞÜ]/.test(password)) {
+      missingRules.push('Şifre en az 1 büyük harf içermelidir.');
+    }
 
-  if (!/[0-9]/.test(password)) {
-    missingRules.push('Şifre en az 1 rakam içermelidir.');
-  }
+    if (!/[a-zçğıöşü]/.test(password)) {
+      missingRules.push('Şifre en az 1 küçük harf içermelidir.');
+    }
 
-  if (!/[^A-Za-z0-9ÇĞİÖŞÜçğıöşü\s]/.test(password)) {
-    missingRules.push('Şifre en az 1 özel karakter (sembol, örn: !@#$%.*) içermelidir.');
+    if (!/[0-9]/.test(password)) {
+      missingRules.push('Şifre en az 1 rakam içermelidir.');
+    }
+
+    if (!/[^A-Za-z0-9ÇĞİÖŞÜçğıöşü\s]/.test(password)) {
+      missingRules.push('Şifre en az 1 özel karakter (sembol, örn: !@#$%.*) içermelidir.');
+    }
   }
 
   return {
@@ -50,58 +61,50 @@ const validateCredentials = (username: string, password: string): ValidationResu
 
 export const AuthPage: React.FC = () => {
   const { login, register } = useAuth();
-  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const validation = validateCredentials(username, password);
-  const hasStartedTyping = username.length > 0 || password.length > 0;
+  const validation = validateCredentials(email, password, activeTab);
+  const hasStartedTyping = email.length > 0 || password.length > 0;
   const showValidationWarnings = !validation.isValid && (hasStartedTyping || submitAttempted);
 
   const switchTab = (tab: 'login' | 'register') => {
     setActiveTab(tab);
     setSubmitAttempted(false);
     setAuthError(null);
-    setSuccessMessage(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setAuthError(null);
-    setSuccessMessage(null);
 
     if (!validation.isValid) {
       setSubmitAttempted(true);
       return;
     }
 
-    if (activeTab === 'register') {
-      const result = register(username, password);
+    setIsSubmitting(true);
+    try {
+      const result =
+        activeTab === 'register'
+          ? await register(email, password)
+          : await login(email, password);
+
       if (!result.success) {
-        setAuthError(result.error ?? 'Kayıt işlemi başarısız oldu.');
-        return;
+        setAuthError(result.error ?? 'İşlem sırasında bir hata oluştu.');
       }
-
-      setSuccessMessage('Hesabınız başarıyla oluşturuldu! Şimdi giriş yapabilirsiniz.');
-      setPassword('');
-      setSubmitAttempted(false);
-      setActiveTab('login');
-      return;
+      // On success, onAuthStateChanged in AuthContext automatically updates user
+      // and PublicAuthRoute redirects cleanly to /onboarding or /
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const result = login(username, password);
-    if (!result.success) {
-      setAuthError(result.error ?? 'Giriş yapılamadı.');
-      return;
-    }
-
-    navigate('/', { replace: true });
   };
 
   return (
@@ -155,26 +158,26 @@ export const AuthPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Auth Form (Only Username & Password) */}
+        {/* Auth Form (Email & Password for Firebase Auth) */}
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
-          {/* Username Input */}
+          {/* Email Input */}
           <div>
             <label
-              htmlFor="auth-username"
+              htmlFor="auth-email"
               className="block text-xs font-medium text-slate-300 mb-1.5"
             >
-              Kullanıcı Adı
+              E-posta Adresi
             </label>
             <div className="relative">
-              <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
-                id="auth-username"
-                type="text"
-                autoComplete="username"
-                placeholder="En az 4 karakter"
-                value={username}
+                id="auth-email"
+                type="email"
+                autoComplete="email"
+                placeholder="ornek@eposta.com"
+                value={email}
                 onChange={(e) => {
-                  setUsername(e.target.value);
+                  setEmail(e.target.value);
                   setAuthError(null);
                 }}
                 className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/25 focus:shadow-[0_0_16px_rgba(139,92,246,0.22)] transition-all"
@@ -215,14 +218,6 @@ export const AuthPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Success Banner (after registration) */}
-          {successMessage && (
-            <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3.5 flex items-start gap-2.5 text-xs text-emerald-300">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-              <p className="leading-relaxed">{successMessage}</p>
-            </div>
-          )}
-
           {/* Validation Rules Warning Box */}
           {showValidationWarnings && (
             <div className="rounded-xl bg-gradient-to-r from-rose-500/10 to-amber-500/10 border border-amber-500/30 p-3.5 space-y-1.5">
@@ -238,7 +233,7 @@ export const AuthPage: React.FC = () => {
             </div>
           )}
 
-          {/* Auth Error Message (e.g., invalid login or duplicate user) */}
+          {/* Firebase Auth Error Message */}
           {authError && (
             <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3.5 flex items-start gap-2.5 text-xs text-rose-300">
               <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
@@ -249,14 +244,22 @@ export const AuthPage: React.FC = () => {
           {/* Submit Button */}
           <button
             type="submit"
-            aria-disabled={!validation.isValid}
+            disabled={isSubmitting}
+            aria-disabled={!validation.isValid || isSubmitting}
             className={`w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all duration-200 mt-2 ${
-              validation.isValid
+              validation.isValid && !isSubmitting
                 ? 'bg-gradient-to-r from-brand-purple to-indigo-600 hover:from-brand-purpleHover hover:to-indigo-500 text-white shadow-lg shadow-brand-purple/25 hover:scale-[1.01] active:scale-[0.99]'
                 : 'bg-slate-800/80 text-slate-400 border border-slate-700/80 cursor-not-allowed'
             }`}
           >
-            {activeTab === 'login' ? (
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>
+                  {activeTab === 'login' ? 'Giriş Yapılıyor...' : 'Hesap Oluşturuluyor...'}
+                </span>
+              </>
+            ) : activeTab === 'login' ? (
               <>
                 <LogIn className="w-4 h-4" />
                 <span>Giriş Yap</span>

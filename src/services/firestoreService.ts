@@ -9,7 +9,7 @@ import {
   doc
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { StudyTask, TrialExam } from '../types';
+import type { StudyTask, TrialExam, UserOnboardingProfile } from '../types';
 
 export interface StudyStatsData {
   dailyMinutes: Record<string, number>;
@@ -29,6 +29,7 @@ export const EMPTY_STUDY_STATS: StudyStatsRecord = {
 const TASKS_COLLECTION = 'tasks';
 const EXAMS_COLLECTION = 'exams';
 const STATS_COLLECTION = 'stats';
+const PROFILES_COLLECTION = 'profiles';
 
 // ==========================================
 // TASKS (Günlük Çalışma Programım)
@@ -199,4 +200,68 @@ export const saveStudyStatsToFirestore = async (
   });
 
   return docRef.id;
+};
+
+// ==========================================
+// USER PROFILES (Onboarding & Hedef Bilgileri)
+// ==========================================
+
+export const fetchUserProfile = async (
+  userId: string
+): Promise<UserOnboardingProfile | null> => {
+  const q = query(collection(db, PROFILES_COLLECTION), where('userId', '==', userId));
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const data = snapshot.docs[0].data();
+  if (
+    typeof data.gradeLevel === 'string' &&
+    typeof data.studyField === 'string' &&
+    typeof data.targetUniversity === 'string' &&
+    typeof data.targetDepartment === 'string'
+  ) {
+    return {
+      gradeLevel: data.gradeLevel as UserOnboardingProfile['gradeLevel'],
+      studyField: data.studyField as UserOnboardingProfile['studyField'],
+      targetUniversity: data.targetUniversity,
+      targetDepartment: data.targetDepartment,
+      completedAt: data.completedAt ?? new Date().toISOString()
+    };
+  }
+
+  return null;
+};
+
+export const saveUserProfileToFirestore = async (
+  userId: string,
+  profile: UserOnboardingProfile
+): Promise<void> => {
+  const q = query(collection(db, PROFILES_COLLECTION), where('userId', '==', userId));
+  const snapshot = await getDocs(q);
+
+  if (!snapshot.empty) {
+    const existingDoc = snapshot.docs[0];
+    await updateDoc(doc(db, PROFILES_COLLECTION, existingDoc.id), {
+      gradeLevel: profile.gradeLevel,
+      studyField: profile.studyField,
+      targetUniversity: profile.targetUniversity,
+      targetDepartment: profile.targetDepartment,
+      completedAt: profile.completedAt,
+      updatedAt: Date.now()
+    });
+    return;
+  }
+
+  await addDoc(collection(db, PROFILES_COLLECTION), {
+    userId,
+    gradeLevel: profile.gradeLevel,
+    studyField: profile.studyField,
+    targetUniversity: profile.targetUniversity,
+    targetDepartment: profile.targetDepartment,
+    completedAt: profile.completedAt,
+    updatedAt: Date.now()
+  });
 };

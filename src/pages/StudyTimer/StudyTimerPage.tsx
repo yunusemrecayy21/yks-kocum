@@ -39,7 +39,7 @@ const TURKISH_WEEKDAYS = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 
 export const StudyTimerPage: React.FC = () => {
   const { user } = useAuth();
-  const userId = user?.id ?? 'guest';
+  const userId = user?.uid;
 
   // Preset or custom durations (in minutes)
   const [workDuration, setWorkDuration] = useState<number>(50);
@@ -78,6 +78,13 @@ export const StudyTimerPage: React.FC = () => {
 
   // Fetch study stats from Firestore on mount / user change
   useEffect(() => {
+    if (!userId) {
+      setStudyStats(EMPTY_STUDY_STATS);
+      studyStatsRef.current = EMPTY_STUDY_STATS;
+      setIsLoadingStats(false);
+      return;
+    }
+
     let isMounted = true;
 
     const loadStats = async () => {
@@ -174,18 +181,20 @@ export const StudyTimerPage: React.FC = () => {
               setStudyStats(optimisticRecord);
               studyStatsRef.current = optimisticRecord;
 
-              void saveStudyStatsToFirestore(userId, current.docId, nextStats)
-                .then((savedDocId) => {
-                  setStudyStats((prev) => {
-                    const updated = { ...prev, docId: savedDocId };
-                    studyStatsRef.current = updated;
-                    return updated;
+              if (userId) {
+                void saveStudyStatsToFirestore(userId, current.docId, nextStats)
+                  .then((savedDocId) => {
+                    setStudyStats((prev) => {
+                      const updated = { ...prev, docId: savedDocId };
+                      studyStatsRef.current = updated;
+                      return updated;
+                    });
+                  })
+                  .catch((err) => {
+                    console.error('Firestore stats save error:', err);
+                    setStatsErrorMsg('Tamamlanan seans Firestore veritabanına kaydedilemedi.');
                   });
-                })
-                .catch((err) => {
-                  console.error('Firestore stats save error:', err);
-                  setStatsErrorMsg('Tamamlanan seans Firestore veritabanına kaydedilemedi.');
-                });
+              }
 
               setCompletionAlert({
                 show: true,
@@ -215,7 +224,7 @@ export const StudyTimerPage: React.FC = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isRunning, mode, workDuration, breakDuration, soundEnabled]);
+  }, [isRunning, mode, workDuration, breakDuration, soundEnabled, userId]);
 
   // Controls: Start
   const handleStart = () => {
