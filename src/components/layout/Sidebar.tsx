@@ -60,10 +60,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       badge: 'Odak',
     },
     {
-      name: 'Çalışma Odası / Pomodoro',
+      name: 'Çalışma Odası',
       path: '/pomodoro',
       icon: Headphones,
-      badge: 'Canlı',
+      badge: 'Pomodoro',
     },
     {
       name: 'Deneme Netlerim',
