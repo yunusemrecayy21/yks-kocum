@@ -1,0 +1,275 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  GraduationCap,
+  User,
+  Lock,
+  Eye,
+  EyeOff,
+  LogIn,
+  UserPlus,
+  AlertTriangle,
+  CheckCircle2,
+  Sparkles
+} from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+
+interface ValidationResult {
+  isValid: boolean;
+  missingRules: string[];
+}
+
+const validateCredentials = (username: string, password: string): ValidationResult => {
+  const missingRules: string[] = [];
+
+  if (username.trim().length < 4) {
+    missingRules.push('Kullanıcı adı en az 4 karakter uzunluğunda olmalıdır.');
+  }
+
+  if (!/[A-ZÇĞİÖŞÜ]/.test(password)) {
+    missingRules.push('Şifre en az 1 büyük harf içermelidir.');
+  }
+
+  if (!/[a-zçğıöşü]/.test(password)) {
+    missingRules.push('Şifre en az 1 küçük harf içermelidir.');
+  }
+
+  if (!/[0-9]/.test(password)) {
+    missingRules.push('Şifre en az 1 rakam içermelidir.');
+  }
+
+  if (!/[^A-Za-z0-9ÇĞİÖŞÜçğıöşü\s]/.test(password)) {
+    missingRules.push('Şifre en az 1 özel karakter (sembol, örn: !@#$%.*) içermelidir.');
+  }
+
+  return {
+    isValid: missingRules.length === 0,
+    missingRules
+  };
+};
+
+export const AuthPage: React.FC = () => {
+  const { login, register } = useAuth();
+  const navigate = useNavigate();
+
+  const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const validation = validateCredentials(username, password);
+  const hasStartedTyping = username.length > 0 || password.length > 0;
+  const showValidationWarnings = !validation.isValid && (hasStartedTyping || submitAttempted);
+
+  const switchTab = (tab: 'login' | 'register') => {
+    setActiveTab(tab);
+    setSubmitAttempted(false);
+    setAuthError(null);
+    setSuccessMessage(null);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setSuccessMessage(null);
+
+    if (!validation.isValid) {
+      setSubmitAttempted(true);
+      return;
+    }
+
+    if (activeTab === 'register') {
+      const result = register(username, password);
+      if (!result.success) {
+        setAuthError(result.error ?? 'Kayıt işlemi başarısız oldu.');
+        return;
+      }
+
+      setSuccessMessage('Hesabınız başarıyla oluşturuldu! Şimdi giriş yapabilirsiniz.');
+      setPassword('');
+      setSubmitAttempted(false);
+      setActiveTab('login');
+      return;
+    }
+
+    const result = login(username, password);
+    if (!result.success) {
+      setAuthError(result.error ?? 'Giriş yapılamadı.');
+      return;
+    }
+
+    navigate('/', { replace: true });
+  };
+
+  return (
+    <div className="min-h-screen bg-dark-bg text-dark-text flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
+      {/* Subtle Ambient Background Orbs */}
+      <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-brand-purple/15 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-indigo-600/15 blur-3xl pointer-events-none" />
+
+      {/* Centered Glassmorphism Auth Card */}
+      <div className="w-full max-w-md relative z-10 rounded-3xl bg-[#0f172a]/75 backdrop-blur-xl border border-slate-800/90 p-7 sm:p-9 shadow-2xl shadow-black/60">
+        {/* Brand Header */}
+        <div className="flex flex-col items-center text-center mb-7">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-brand-purple to-indigo-500 flex items-center justify-center shadow-lg shadow-brand-purple/25 mb-3.5">
+            <GraduationCap className="w-6 h-6 text-white" />
+          </div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-white tracking-tight">YKS Koçum</h1>
+            <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded-md bg-brand-purple/20 text-brand-purpleLight border border-brand-purple/30">
+              Pro
+            </span>
+          </div>
+          <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5 text-brand-purpleLight" />
+            <span>Akıllı YKS Gelişim & Takip Platformu</span>
+          </p>
+        </div>
+
+        {/* Tab Switcher: Giriş Yap / Kayıt Ol */}
+        <div className="p-1.5 rounded-2xl bg-slate-950/80 border border-slate-800/80 grid grid-cols-2 gap-1 mb-6">
+          <button
+            type="button"
+            onClick={() => switchTab('login')}
+            className={`py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
+              activeTab === 'login'
+                ? 'bg-gradient-to-r from-brand-purple to-indigo-600 text-white shadow-md shadow-brand-purple/25'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Giriş Yap
+          </button>
+          <button
+            type="button"
+            onClick={() => switchTab('register')}
+            className={`py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${
+              activeTab === 'register'
+                ? 'bg-gradient-to-r from-brand-purple to-indigo-600 text-white shadow-md shadow-brand-purple/25'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            Kayıt Ol
+          </button>
+        </div>
+
+        {/* Auth Form (Only Username & Password) */}
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          {/* Username Input */}
+          <div>
+            <label
+              htmlFor="auth-username"
+              className="block text-xs font-medium text-slate-300 mb-1.5"
+            >
+              Kullanıcı Adı
+            </label>
+            <div className="relative">
+              <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                id="auth-username"
+                type="text"
+                autoComplete="username"
+                placeholder="En az 4 karakter"
+                value={username}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  setAuthError(null);
+                }}
+                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/25 focus:shadow-[0_0_16px_rgba(139,92,246,0.22)] transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Password Input */}
+          <div>
+            <label
+              htmlFor="auth-password"
+              className="block text-xs font-medium text-slate-300 mb-1.5"
+            >
+              Şifre
+            </label>
+            <div className="relative">
+              <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                id="auth-password"
+                type={showPassword ? 'text' : 'password'}
+                autoComplete={activeTab === 'login' ? 'current-password' : 'new-password'}
+                placeholder="Güçlü şifrenizi girin"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setAuthError(null);
+                }}
+                className="w-full bg-slate-950/80 border border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/25 focus:shadow-[0_0_16px_rgba(139,92,246,0.22)] transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition"
+                aria-label={showPassword ? 'Şifreyi Gizle' : 'Şifreyi Göster'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Success Banner (after registration) */}
+          {successMessage && (
+            <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-3.5 flex items-start gap-2.5 text-xs text-emerald-300">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+              <p className="leading-relaxed">{successMessage}</p>
+            </div>
+          )}
+
+          {/* Validation Rules Warning Box */}
+          {showValidationWarnings && (
+            <div className="rounded-xl bg-gradient-to-r from-rose-500/10 to-amber-500/10 border border-amber-500/30 p-3.5 space-y-1.5">
+              <div className="flex items-center gap-2 text-xs font-semibold text-amber-300">
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>Lütfen eksik kuralları tamamlayın:</span>
+              </div>
+              <ul className="space-y-1 pl-6 list-disc text-[11px] text-rose-300/95">
+                {validation.missingRules.map((rule, idx) => (
+                  <li key={idx}>{rule}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Auth Error Message (e.g., invalid login or duplicate user) */}
+          {authError && (
+            <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3.5 flex items-start gap-2.5 text-xs text-rose-300">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <p className="leading-relaxed">{authError}</p>
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            aria-disabled={!validation.isValid}
+            className={`w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all duration-200 mt-2 ${
+              validation.isValid
+                ? 'bg-gradient-to-r from-brand-purple to-indigo-600 hover:from-brand-purpleHover hover:to-indigo-500 text-white shadow-lg shadow-brand-purple/25 hover:scale-[1.01] active:scale-[0.99]'
+                : 'bg-slate-800/80 text-slate-400 border border-slate-700/80 cursor-not-allowed'
+            }`}
+          >
+            {activeTab === 'login' ? (
+              <>
+                <LogIn className="w-4 h-4" />
+                <span>Giriş Yap</span>
+              </>
+            ) : (
+              <>
+                <UserPlus className="w-4 h-4" />
+                <span>Kayıt Ol</span>
+              </>
+            )}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
