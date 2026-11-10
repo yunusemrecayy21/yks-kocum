@@ -12,10 +12,10 @@ interface AiCoachContextValue {
 
 const AiCoachContext = createContext<AiCoachContextValue | undefined>(undefined);
 
-const createWelcomeMessage = (username?: string): ChatMessage => ({
+const createWelcomeMessage = (displayName?: string | null): ChatMessage => ({
   id: 'welcome-msg',
   role: 'model',
-  text: `Merhaba ${username || 'Şampiyon'}! 👋 Ben senin YKS Yapay Zeka Eğitim Koçunum. Çalışma stratejileri, TYT/AYT konu planlaması, zaman yönetimi veya motivasyon hakkında bana dilediğini sorabilirsin. Bugün sana nasıl yardımcı olabilirim?`,
+  text: `Merhaba ${displayName?.trim() || 'Öğrenci'}! 👋 Ben senin YKS Yapay Zeka Eğitim Koçunum. Çalışma stratejileri, TYT/AYT konu planlaması, zaman yönetimi veya motivasyon hakkında bana dilediğini sorabilirsin. Bugün sana nasıl yardımcı olabilirim?`,
   timestamp: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
   isWelcome: true
 });
@@ -23,19 +23,19 @@ const createWelcomeMessage = (username?: string): ChatMessage => ({
 export const AiCoachProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, onboardingProfile } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
-    createWelcomeMessage(user?.username)
+    createWelcomeMessage(user?.displayName)
   ]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Reset conversation cleanly when active user changes
   useEffect(() => {
-    setMessages([createWelcomeMessage(user?.username)]);
+    setMessages([createWelcomeMessage(user?.displayName)]);
     setIsLoading(false);
-  }, [user?.uid, user?.username]);
+  }, [user?.uid, user?.displayName]);
 
   const clearMessages = useCallback(() => {
-    setMessages([createWelcomeMessage(user?.username)]);
-  }, [user?.username]);
+    setMessages([createWelcomeMessage(user?.displayName)]);
+  }, [user?.displayName]);
 
   const sendMessage = useCallback(
     async (rawText: string) => {

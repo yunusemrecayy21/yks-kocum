@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   CheckSquare, 
@@ -27,8 +27,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { user, onboardingProfile, isTytOnly, logout } = useAuth();
   const navigate = useNavigate();
 
-  const displayUsername = user?.username || 'Öğrenci';
-  const initials = displayUsername.slice(0, 2).toUpperCase();
+  const displayName = user?.displayName?.trim() || 'Öğrenci';
+  const nameParts = displayName.split(/\s+/).filter(Boolean);
+  const initials =
+    nameParts.length > 1
+      ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
+      : displayName.slice(0, 2).toUpperCase();
 
   const handleLogout = async () => {
     try {
@@ -97,20 +101,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       >
         {/* Brand / Logo */}
         <div className="h-20 px-6 flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800/60">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-purple to-indigo-500 flex items-center justify-center shadow-lg shadow-brand-purple/20">
+          <Link
+            to="/"
+            onClick={onClose}
+            className="flex items-center gap-3 group rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-purple/50 transition"
+            title="Ana Sayfaya Dön"
+          >
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-purple to-indigo-500 flex items-center justify-center shadow-lg shadow-brand-purple/20 group-hover:scale-105 transition-transform duration-200">
               <GraduationCap className="w-5 h-5 text-white" />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="font-bold text-lg text-slate-900 dark:text-white tracking-tight">YKS Koçum</span>
+                <span className="font-bold text-lg text-slate-900 dark:text-white group-hover:text-brand-purple dark:group-hover:text-brand-purpleLight tracking-tight transition-colors">
+                  YKS Koçum
+                </span>
                 <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-purple-100 dark:bg-brand-purple/20 text-purple-700 dark:text-brand-purpleLight border border-purple-200 dark:border-brand-purple/30">
                   Pro
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-dark-subtext">Akıllı Gelişim Takibi</p>
             </div>
-          </div>
+          </Link>
 
           <button 
             onClick={onClose}
@@ -195,7 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{displayUsername}</p>
+                <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{displayName}</p>
                 <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
               </div>
               <p className="text-[11px] text-brand-purple dark:text-brand-purpleLight/90 font-medium truncate">

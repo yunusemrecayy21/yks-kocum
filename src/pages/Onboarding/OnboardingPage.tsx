@@ -122,7 +122,7 @@ export const OnboardingPage: React.FC = () => {
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             {isEditMode
               ? 'Hedeflerini Güncelle'
-              : `Hoş Geldin, ${user?.username ?? 'Öğrenci'}!`}
+              : `Hoş Geldin, ${user?.displayName?.trim() || 'Öğrenci'}!`}
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1.5 max-w-lg">
             Sana en uygun çalışma ekranını ve deneme analizlerini hazırlayabilmemiz için bu 4 kısa soruyu yanıtla.

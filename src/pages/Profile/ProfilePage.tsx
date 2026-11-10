@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   User,
-  Mail,
   Building2,
   BookOpen,
   Lock,
@@ -31,8 +30,19 @@ export const ProfilePage: React.FC = () => {
     onboardingProfile,
     saveOnboardingProfile,
     refreshProfile,
+    updateDisplayName,
     changePassword
   } = useAuth();
+
+  // Full Name (Firebase Auth displayName + Firestore users)
+  const [fullName, setFullName] = useState<string>(() => user?.displayName ?? '');
+  const [isSavingName, setIsSavingName] = useState<boolean>(false);
+  const [nameSuccess, setNameSuccess] = useState<string | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFullName(user?.displayName ?? '');
+  }, [user?.displayName]);
 
   // Target University & Department state (Firestore userProfiles)
   const [targetUniversity, setTargetUniversity] = useState<string>(
@@ -154,8 +164,37 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
-  const displayUsername = user?.username || 'Öğrenci';
-  const initials = displayUsername.slice(0, 2).toUpperCase();
+  const handleSaveDisplayName = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSavingName) return;
+    setNameSuccess(null);
+    setNameError(null);
+
+    if (fullName.trim().length < 2) {
+      setNameError('Lütfen en az 2 karakterden oluşan Ad Soyad bilginizi girin.');
+      return;
+    }
+
+    setIsSavingName(true);
+    try {
+      const result = await updateDisplayName(fullName);
+      if (!result.success) {
+        setNameError(result.error ?? 'Ad Soyad güncellenemedi.');
+        return;
+      }
+
+      setNameSuccess('Ad Soyad bilginiz başarıyla güncellendi ve tüm alanlarla senkronize edildi.');
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
+  const displayName = user?.displayName?.trim() || 'Öğrenci';
+  const nameParts = displayName.split(/\s+/).filter(Boolean);
+  const initials =
+    nameParts.length > 1
+      ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
+      : displayName.slice(0, 2).toUpperCase();
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -167,7 +206,7 @@ export const ProfilePage: React.FC = () => {
             Profil & Hesap Ayarları
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-            Hesap bilgilerini görüntüle, hedef üniversite & bölüm tercihini düzenle ve şifreni güncelle.
+            Ad Soyad bilgisini düzenle, hedef üniversite & bölüm tercihini güncelle ve yeni şifre belirle.
           </p>
         </div>
       </div>
@@ -182,14 +221,15 @@ export const ProfilePage: React.FC = () => {
             <div className="min-w-0 space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white truncate">
-                  {displayUsername}
+                  {displayName}
                 </h2>
                 <Badge variant="purple">Aktif Hesap</Badge>
               </div>
-              <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                <Mail className="w-4 h-4 text-brand-purple dark:text-brand-purpleLight shrink-0" />
-                <span className="truncate">{user?.email || '—'}</span>
-              </div>
+              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 truncate">
+                {onboardingProfile
+                  ? `${onboardingProfile.targetUniversity} · ${onboardingProfile.targetDepartment}`
+                  : 'YKS Koçum Öğrencisi'}
+              </p>
             </div>
           </div>
 
@@ -213,9 +253,9 @@ export const ProfilePage: React.FC = () => {
         </div>
       </Card>
 
-      {/* Two Column Forms: Target University/Department + Password Update */}
+      {/* Two Column Forms: Personal Name + Target University/Department | Password Update */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Card 1: Target University & Department (Firestore userProfiles) */}
+        {/* Card 1: Ad Soyad + Target University & Department */}
         <Card className="p-6 space-y-5">
           <div className="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
             <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-brand-purple/15 text-brand-purple dark:text-brand-purpleLight border border-purple-200 dark:border-brand-purple/30">
@@ -223,13 +263,69 @@ export const ProfilePage: React.FC = () => {
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                Hedef Üniversite & Bölüm
+                Kişisel Bilgiler & Hedefler
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Ana Sayfa motivasyon köşen bu bilgilere göre güncellenir
+                Ad Soyad ve hedef üniversite bilgilerini buradan yönetebilirsin
               </p>
             </div>
           </div>
+
+          {/* Ad Soyad Update Form (Firebase Auth updateProfile + Firestore users) */}
+          <form onSubmit={handleSaveDisplayName} noValidate className="space-y-3 pb-5 border-b border-slate-200 dark:border-slate-800">
+            <div>
+              <label
+                htmlFor="profile-fullname"
+                className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5"
+              >
+                Ad Soyad
+              </label>
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <div className="relative flex-1">
+                  <User className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    id="profile-fullname"
+                    type="text"
+                    required
+                    placeholder="Adınız Soyadınız"
+                    value={fullName}
+                    onChange={(e) => {
+                      setFullName(e.target.value);
+                      setNameSuccess(null);
+                      setNameError(null);
+                    }}
+                    className="w-full bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-brand-purple focus:ring-2 focus:ring-brand-purple/20 transition"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSavingName}
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-brand-purple dark:hover:bg-brand-purpleHover disabled:opacity-60 text-white text-xs font-semibold transition shrink-0"
+                >
+                  {isSavingName ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Save className="w-3.5 h-3.5" />
+                  )}
+                  <span>{isSavingName ? 'Kaydediliyor...' : 'Adı Güncelle'}</span>
+                </button>
+              </div>
+            </div>
+
+            {nameSuccess && (
+              <div className="rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 p-3 flex items-start gap-2 text-xs text-emerald-700 dark:text-emerald-300">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <p>{nameSuccess}</p>
+              </div>
+            )}
+
+            {nameError && (
+              <div className="rounded-xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 p-3 flex items-start gap-2 text-xs text-rose-700 dark:text-rose-300">
+                <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <p>{nameError}</p>
+              </div>
+            )}
+          </form>
 
           {isLoadingProfile ? (
             <div className="py-10 flex flex-col items-center justify-center text-center">
@@ -240,24 +336,6 @@ export const ProfilePage: React.FC = () => {
             </div>
           ) : (
             <form onSubmit={handleSaveTargets} className="space-y-4">
-              <div>
-                <label
-                  htmlFor="profile-email"
-                  className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1.5"
-                >
-                  Kayıtlı E-posta Adresi
-                </label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    id="profile-email"
-                    type="email"
-                    readOnly
-                    value={user?.email ?? ''}
-                    className="w-full bg-slate-100 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-500 dark:text-slate-400 cursor-not-allowed"
-                  />
-                </div>
-              </div>
 
               <div>
                 <label

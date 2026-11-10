@@ -32,6 +32,7 @@ interface AuthContextValue {
   register: (email: string, password: string, fullName: string) => Promise<AuthResult>;
   login: (email: string, password: string) => Promise<AuthResult>;
   resetPassword: (email: string) => Promise<AuthResult>;
+  updateDisplayName: (fullName: string) => Promise<AuthResult>;
   changePassword: (newPassword: string) => Promise<AuthResult>;
   logout: () => Promise<void>;
   saveOnboardingProfile: (profile: Omit<UserOnboardingProfile, 'completedAt'>) => Promise<void>;
@@ -52,8 +53,7 @@ export const checkIsTytOnly = (profile: UserOnboardingProfile | null): boolean =
 const mapFirebaseUser = (fbUser: FirebaseUser): AuthUser => {
   const email = fbUser.email ?? '';
   const cleanDisplayName = fbUser.displayName?.trim() || null;
-  const derivedName =
-    cleanDisplayName || (email.includes('@') ? email.split('@')[0] : 'Öğrenci');
+  const derivedName = cleanDisplayName || 'Öğrenci';
 
   return {
     uid: fbUser.uid,
@@ -186,6 +186,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const updateDisplayName = async (fullName: string): Promise<AuthResult> => {
+    if (!auth.currentUser) {
+      return {
+        success: false,
+        error: 'Aktif kullanıcı oturumu bulunamadı. Lütfen yeniden giriş yapın.'
+      };
+    }
+
+    const cleanFullName = fullName.trim();
+    if (cleanFullName.length < 2) {
+      return {
+        success: false,
+        error: 'Lütfen en az 2 karakterden oluşan bir Ad Soyad girin.'
+      };
+    }
+
+    try {
+      await updateProfile(auth.currentUser, {
+        displayName: cleanFullName
+      });
+      setUser(mapFirebaseUser(auth.currentUser));
+
+      try {
+        await saveUserRecordToFirestore(auth.currentUser.uid, {
+          email: auth.currentUser.email ?? '',
+          fullName: cleanFullName
+        });
+      } catch (firestoreError) {
+        console.error('Firestore users update error:', firestoreError);
+      }
+
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        error: translateFirebaseAuthError(error)
+      };
+    }
+  };
+
   const changePassword = async (newPassword: string): Promise<AuthResult> => {
     if (!auth.currentUser) {
       return {
@@ -242,6 +282,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         register,
         login,
         resetPassword,
+        updateDisplayName,
         changePassword,
         logout,
         saveOnboardingProfile,
