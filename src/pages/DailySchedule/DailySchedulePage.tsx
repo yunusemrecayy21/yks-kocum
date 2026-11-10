@@ -7,18 +7,20 @@ import {
   Clock,
   CheckSquare,
   BookOpen,
-  Sparkles
+  Sparkles,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { useAuth } from '../../context/AuthContext';
+import { getLocalDateKey } from '../../utils/date';
 import {
-  STORAGE_PREFIXES,
-  getLocalDateKey,
-  getUserStorageKey,
-  readLocalStorageJson,
-  writeLocalStorageJson
-} from '../../utils/storage';
+  fetchTasks,
+  addTaskToFirestore,
+  toggleTaskInFirestore,
+  deleteTaskFromFirestore
+} from '../../services/firestoreService';
 import type { StudyTask, Subject } from '../../types';
 
 const SUBJECT_LIST: Subject[] = [
@@ -38,11 +40,12 @@ const SUBJECT_LIST: Subject[] = [
 
 export const DailySchedulePage: React.FC = () => {
   const { user, isTytOnly } = useAuth();
-  const storageKey = getUserStorageKey(STORAGE_PREFIXES.TASKS, user?.id);
+  const userId = user?.id ?? 'guest';
 
-  // Start with empty array []; load from localStorage in useEffect
   const [tasks, setTasks] = useState<StudyTask[]>([]);
-  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [isAdding, setIsAdding] = useState(false);
@@ -53,19 +56,36 @@ export const DailySchedulePage: React.FC = () => {
   const [duration, setDuration] = useState('45');
   const [category, setCategory] = useState<'TYT' | 'AYT' | 'Tekrar' | 'Soru Çözümü'>('TYT');
 
-  // Check localStorage on mount / user change
+  // Fetch tasks from Firestore on mount / user change
   useEffect(() => {
-    const stored = readLocalStorageJson<StudyTask[]>(storageKey, []);
-    setTasks(Array.isArray(stored) ? stored : []);
-    setLoadedKey(storageKey);
-  }, [storageKey]);
+    let isMounted = true;
 
-  // Persist changes immediately after initial load completes
-  useEffect(() => {
-    if (loadedKey === storageKey) {
-      writeLocalStorageJson(storageKey, tasks);
-    }
-  }, [tasks, storageKey, loadedKey]);
+    const loadTasks = async () => {
+      setIsLoading(true);
+      setErrorMsg(null);
+      try {
+        const fetched = await fetchTasks(userId);
+        if (isMounted) {
+          setTasks(fetched);
+        }
+      } catch (err) {
+        console.error('Firestore tasks fetch error:', err);
+        if (isMounted) {
+          setErrorMsg('Görevler Firestore veritabanından yüklenirken bir hata oluştu.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadTasks();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (isTytOnly && category === 'AYT') {
@@ -73,33 +93,67 @@ export const DailySchedulePage: React.FC = () => {
     }
   }, [isTytOnly, category]);
 
-  const toggleTask = (id: string) => {
+  const toggleTask = async (task: StudyTask) => {
+    const nextCompleted = !task.completed;
+    setErrorMsg(null);
+
+    // Optimistic update
     setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
+      prev.map((t) => (t.id === task.id ? { ...t, completed: nextCompleted } : t))
     );
+
+    try {
+      await toggleTaskInFirestore(task.id, nextCompleted);
+    } catch (err) {
+      console.error('Firestore task update error:', err);
+      // Rollback on failure
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, completed: task.completed } : t))
+      );
+      setErrorMsg('Görev durumu güncellenemedi. Lütfen bağlantınızı kontrol edin.');
+    }
   };
 
-  const deleteTask = (id: string) => {
+  const deleteTask = async (id: string) => {
+    const previousTasks = tasks;
+    setErrorMsg(null);
     setTasks((prev) => prev.filter((t) => t.id !== id));
+
+    try {
+      await deleteTaskFromFirestore(id);
+    } catch (err) {
+      console.error('Firestore task delete error:', err);
+      setTasks(previousTasks);
+      setErrorMsg('Görev silinemedi. Lütfen tekrar deneyin.');
+    }
   };
 
-  const handleAddTask = (e: React.FormEvent) => {
+  const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!topic.trim()) return;
+    if (!topic.trim() || isSubmitting) return;
 
-    const newTask: StudyTask = {
-      id: Date.now().toString(),
-      subject,
-      topic: topic.trim(),
-      durationMinutes: Number(duration) || 30,
-      completed: false,
-      date: getLocalDateKey(),
-      category: isTytOnly && category === 'AYT' ? 'TYT' : category
-    };
+    setIsSubmitting(true);
+    setErrorMsg(null);
 
-    setTasks((prev) => [newTask, ...prev]);
-    setTopic('');
-    setIsAdding(false);
+    try {
+      const created = await addTaskToFirestore(userId, {
+        subject,
+        topic: topic.trim(),
+        durationMinutes: Number(duration) || 30,
+        completed: false,
+        date: getLocalDateKey(),
+        category: isTytOnly && category === 'AYT' ? 'TYT' : category
+      });
+
+      setTasks((prev) => [created, ...prev]);
+      setTopic('');
+      setIsAdding(false);
+    } catch (err) {
+      console.error('Firestore task add error:', err);
+      setErrorMsg('Görev eklenirken bir hata oluştu. Lütfen tekrar deneyin.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const visibleTasks = isTytOnly ? tasks.filter((t) => t.category !== 'AYT') : tasks;
@@ -129,12 +183,21 @@ export const DailySchedulePage: React.FC = () => {
 
         <button
           onClick={() => setIsAdding(!isAdding)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-purple hover:bg-brand-purpleHover text-white text-sm font-semibold shadow-lg shadow-brand-purple/20 transition self-start sm:self-auto"
+          disabled={isLoading}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-purple hover:bg-brand-purpleHover disabled:opacity-60 text-white text-sm font-semibold shadow-lg shadow-brand-purple/20 transition self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
           <span>Yeni Görev Ekle</span>
         </button>
       </div>
+
+      {/* Error Alert */}
+      {errorMsg && (
+        <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3.5 flex items-center gap-2.5 text-xs text-rose-300">
+          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
 
       {/* Progress & Summary Bar */}
       <Card className="p-5">
@@ -287,18 +350,27 @@ export const DailySchedulePage: React.FC = () => {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-brand-purple hover:bg-brand-purpleHover text-white text-xs font-semibold rounded-xl transition shadow-md shadow-brand-purple/20"
+                disabled={isSubmitting}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-purple hover:bg-brand-purpleHover disabled:opacity-60 text-white text-xs font-semibold rounded-xl transition shadow-md shadow-brand-purple/20"
               >
-                Listeye Ekle
+                {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                <span>{isSubmitting ? 'Kaydediliyor...' : 'Listeye Ekle'}</span>
               </button>
             </div>
           </form>
         </Card>
       )}
 
-      {/* Task List / Empty State */}
+      {/* Loading / Task List / Empty State */}
       <div className="space-y-3">
-        {visibleTasks.length === 0 ? (
+        {isLoading ? (
+          <Card className="py-16 flex flex-col items-center justify-center text-center">
+            <Loader2 className="w-8 h-8 text-brand-purpleLight animate-spin mb-3" />
+            <p className="text-sm font-medium text-slate-300">
+              Çalışma programınız Firestore'dan yükleniyor...
+            </p>
+          </Card>
+        ) : visibleTasks.length === 0 ? (
           <Card className="relative overflow-hidden text-center py-14 px-6 border-dashed border-slate-700/80 bg-[#0f172a]/60">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-purple/20 to-indigo-500/20 border border-brand-purple/30 flex items-center justify-center mx-auto mb-4 shadow-glow-purple">
               <Sparkles className="w-8 h-8 text-brand-purpleLight" />
@@ -340,7 +412,7 @@ export const DailySchedulePage: React.FC = () => {
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5 min-w-0">
                   <button
-                    onClick={() => toggleTask(task.id)}
+                    onClick={() => toggleTask(task)}
                     className="shrink-0 text-slate-400 hover:text-brand-purpleLight transition"
                     aria-label="Görevi tamamla"
                   >

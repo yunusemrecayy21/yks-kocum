@@ -11,50 +11,75 @@ import {
   Sparkles,
   ChevronRight,
   GraduationCap,
-  Plus
+  Plus,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { useAuth } from '../../context/AuthContext';
+import { getLocalDateKey } from '../../utils/date';
 import {
-  STORAGE_PREFIXES,
-  EMPTY_STUDY_STATS,
-  getLocalDateKey,
-  getUserStorageKey,
-  readLocalStorageJson
-} from '../../utils/storage';
-import type { StudyStatsData } from '../../utils/storage';
+  fetchTasks,
+  fetchExams,
+  fetchStudyStats,
+  EMPTY_STUDY_STATS
+} from '../../services/firestoreService';
+import type { StudyStatsRecord } from '../../services/firestoreService';
 import type { StudyTask, TrialExam } from '../../types';
 
 export const DashboardPage: React.FC = () => {
   const { user, onboardingProfile, isTytOnly } = useAuth();
+  const userId = user?.id ?? 'guest';
   const displayUsername = user?.username || 'Öğrenci';
   const targetUniversity = onboardingProfile?.targetUniversity || 'Hedef Üniversite';
   const targetDepartment = onboardingProfile?.targetDepartment || 'Hedef Bölüm';
   const gradeLevel = onboardingProfile?.gradeLevel || '12. Sınıf';
   const studyField = onboardingProfile?.studyField || 'Sayısal';
 
-  const tasksKey = getUserStorageKey(STORAGE_PREFIXES.TASKS, user?.id);
-  const examsKey = getUserStorageKey(STORAGE_PREFIXES.EXAMS, user?.id);
-  const statsKey = getUserStorageKey(STORAGE_PREFIXES.STUDY_STATS, user?.id);
-
   const [tasks, setTasks] = useState<StudyTask[]>([]);
   const [exams, setExams] = useState<TrialExam[]>([]);
-  const [studyStats, setStudyStats] = useState<StudyStatsData>(EMPTY_STUDY_STATS);
+  const [studyStats, setStudyStats] = useState<StudyStatsRecord>(EMPTY_STUDY_STATS);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Load real data from localStorage on mount / user change
+  // Load real data from Firebase Firestore on mount / user change
   useEffect(() => {
-    const storedTasks = readLocalStorageJson<StudyTask[]>(tasksKey, []);
-    const storedExams = readLocalStorageJson<TrialExam[]>(examsKey, []);
-    const storedStats = readLocalStorageJson<StudyStatsData>(statsKey, EMPTY_STUDY_STATS);
+    let isMounted = true;
 
-    setTasks(Array.isArray(storedTasks) ? storedTasks : []);
-    setExams(Array.isArray(storedExams) ? storedExams : []);
-    setStudyStats({
-      dailyMinutes: storedStats?.dailyMinutes ?? {},
-      dailySessions: storedStats?.dailySessions ?? {}
-    });
-  }, [tasksKey, examsKey, statsKey]);
+    const loadDashboardData = async () => {
+      setIsLoading(true);
+      setErrorMsg(null);
+      try {
+        const [fetchedTasks, fetchedExams, fetchedStats] = await Promise.all([
+          fetchTasks(userId),
+          fetchExams(userId),
+          fetchStudyStats(userId)
+        ]);
+
+        if (isMounted) {
+          setTasks(fetchedTasks);
+          setExams(fetchedExams);
+          setStudyStats(fetchedStats);
+        }
+      } catch (err) {
+        console.error('Firestore dashboard fetch error:', err);
+        if (isMounted) {
+          setErrorMsg('Verileriniz Firestore veritabanından yüklenirken bir hata oluştu.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadDashboardData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId]);
 
   // Task metrics
   const visibleTasks = useMemo(
@@ -94,7 +119,7 @@ export const DashboardPage: React.FC = () => {
       ? parseFloat((aytExams[0].scores.total - aytExams[1].scores.total).toFixed(2))
       : null;
 
-  // Weekly study hours & active streak from real studyStats
+  // Weekly study hours & active streak from real Firestore studyStats
   const { streakDays, weeklyHours, weeklyRemainingMins } = useMemo(() => {
     let totalWeeklyMins = 0;
     for (let offset = 0; offset < 7; offset++) {
@@ -136,7 +161,12 @@ export const DashboardPage: React.FC = () => {
     : 0;
 
   const getCoachInsight = () => {
-    if (visibleTasks.length === 0 && exams.length === 0 && weeklyHours === 0 && weeklyRemainingMins === 0) {
+    if (
+      visibleTasks.length === 0 &&
+      exams.length === 0 &&
+      weeklyHours === 0 &&
+      weeklyRemainingMins === 0
+    ) {
       return `Kurulumun tamamlandı! İlk adım olarak Günlük Çalışma Programı'na bugünün hedeflerini ekleyebilir, Çalışma Sayacı ile odaklanabilir veya ilk deneme sonucunu kaydedebilirsin.`;
     }
     if (isTytOnly) {
@@ -220,7 +250,15 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Summary KPI Metrics (100% real data from localStorage) */}
+      {/* Firestore Error Alert */}
+      {errorMsg && (
+        <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3.5 flex items-center gap-2.5 text-xs text-rose-300">
+          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {/* Summary KPI Metrics (100% real data from Firebase Firestore) */}
       <div className={`grid grid-cols-1 sm:grid-cols-2 ${isTytOnly ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4`}>
         {/* Metric 1: Daily Progress */}
         <Card className="p-5 flex flex-col justify-between">
@@ -233,20 +271,24 @@ export const DashboardPage: React.FC = () => {
           <div>
             <div className="flex items-baseline justify-between mb-1.5">
               <span className="text-2xl font-bold text-white">
-                {completedTasksCount} / {visibleTasks.length}
+                {isLoading ? '...' : `${completedTasksCount} / ${visibleTasks.length}`}
               </span>
               <span className="text-xs font-semibold text-brand-purpleLight">
-                %{taskCompletionPercent}
+                {isLoading ? '' : `%${taskCompletionPercent}`}
               </span>
             </div>
             <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
               <div
                 className="bg-brand-purple h-full rounded-full transition-all duration-300"
-                style={{ width: `${taskCompletionPercent}%` }}
+                style={{ width: `${isLoading ? 0 : taskCompletionPercent}%` }}
               />
             </div>
             <p className="text-[11px] text-slate-500 mt-2">
-              {visibleTasks.length === 0 ? 'Henüz görev eklenmedi' : 'Tamamlanan görevler'}
+              {isLoading
+                ? 'Yükleniyor...'
+                : visibleTasks.length === 0
+                ? 'Henüz görev eklenmedi'
+                : 'Tamamlanan görevler'}
             </p>
           </div>
         </Card>
@@ -262,9 +304,9 @@ export const DashboardPage: React.FC = () => {
           <div>
             <div className="flex items-baseline gap-2 mb-1.5">
               <span className="text-2xl font-bold text-white">
-                {latestTyt ? latestTyt.scores.total.toFixed(2) : '0.00'}
+                {isLoading ? '...' : latestTyt ? latestTyt.scores.total.toFixed(2) : '0.00'}
               </span>
-              {tytDiff !== null && (
+              {!isLoading && tytDiff !== null && (
                 <span
                   className={`text-xs font-medium flex items-center ${
                     tytDiff >= 0 ? 'text-emerald-400' : 'text-rose-400'
@@ -277,7 +319,7 @@ export const DashboardPage: React.FC = () => {
             <div className="flex items-center justify-between text-[11px] text-slate-500">
               <span>Hedef: {tytTargetNet.toFixed(2)}</span>
               <span className="text-slate-400 font-medium truncate max-w-[120px]">
-                {latestTyt ? latestTyt.name : 'Veri yok'}
+                {isLoading ? 'Yükleniyor...' : latestTyt ? latestTyt.name : 'Veri yok'}
               </span>
             </div>
           </div>
@@ -295,9 +337,9 @@ export const DashboardPage: React.FC = () => {
             <div>
               <div className="flex items-baseline gap-2 mb-1.5">
                 <span className="text-2xl font-bold text-white">
-                  {latestAyt ? latestAyt.scores.total.toFixed(2) : '0.00'}
+                  {isLoading ? '...' : latestAyt ? latestAyt.scores.total.toFixed(2) : '0.00'}
                 </span>
-                {aytDiff !== null && (
+                {!isLoading && aytDiff !== null && (
                   <span
                     className={`text-xs font-medium flex items-center ${
                       aytDiff >= 0 ? 'text-emerald-400' : 'text-rose-400'
@@ -310,7 +352,11 @@ export const DashboardPage: React.FC = () => {
               <div className="flex items-center justify-between text-[11px] text-slate-500">
                 <span>Hedef: {aytTargetNet.toFixed(2)}</span>
                 <span className="text-slate-400 font-medium truncate max-w-[120px]">
-                  {latestAyt ? latestAyt.name : `${studyField} · Veri yok`}
+                  {isLoading
+                    ? 'Yükleniyor...'
+                    : latestAyt
+                    ? latestAyt.name
+                    : `${studyField} · Veri yok`}
                 </span>
               </div>
             </div>
@@ -327,13 +373,19 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div>
             <div className="flex items-baseline gap-2 mb-1.5">
-              <span className="text-2xl font-bold text-white">{streakDays} Gün</span>
-              <Badge variant={streakDays > 0 ? 'amber' : 'slate'}>
-                {streakDays > 0 ? 'Aralıksız' : 'Hazır'}
-              </Badge>
+              <span className="text-2xl font-bold text-white">
+                {isLoading ? '...' : `${streakDays} Gün`}
+              </span>
+              {!isLoading && (
+                <Badge variant={streakDays > 0 ? 'amber' : 'slate'}>
+                  {streakDays > 0 ? 'Aralıksız' : 'Hazır'}
+                </Badge>
+              )}
             </div>
             <p className="text-[11px] text-slate-500">
-              Bu hafta toplam: {weeklyHours} saat {weeklyRemainingMins} dk
+              {isLoading
+                ? 'Yükleniyor...'
+                : `Bu hafta toplam: ${weeklyHours} saat ${weeklyRemainingMins} dk`}
             </p>
           </div>
         </Card>
@@ -357,7 +409,14 @@ export const DashboardPage: React.FC = () => {
             </Link>
           </div>
 
-          {visibleTasks.length === 0 ? (
+          {isLoading ? (
+            <Card className="py-12 flex flex-col items-center justify-center text-center">
+              <Loader2 className="w-7 h-7 text-brand-purpleLight animate-spin mb-3" />
+              <p className="text-xs text-slate-300 font-medium">
+                Verileriniz Firestore'dan yükleniyor...
+              </p>
+            </Card>
+          ) : visibleTasks.length === 0 ? (
             <Card className="text-center py-10 px-6 border-dashed border-slate-800">
               <CheckSquare className="w-10 h-10 text-slate-600 mx-auto mb-3" />
               <p className="text-sm font-medium text-slate-300">

@@ -1,0 +1,202 @@
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc
+} from 'firebase/firestore';
+import { db } from '../firebase';
+import type { StudyTask, TrialExam } from '../types';
+
+export interface StudyStatsData {
+  dailyMinutes: Record<string, number>;
+  dailySessions: Record<string, number>;
+}
+
+export interface StudyStatsRecord extends StudyStatsData {
+  docId: string | null;
+}
+
+export const EMPTY_STUDY_STATS: StudyStatsRecord = {
+  docId: null,
+  dailyMinutes: {},
+  dailySessions: {}
+};
+
+const TASKS_COLLECTION = 'tasks';
+const EXAMS_COLLECTION = 'exams';
+const STATS_COLLECTION = 'stats';
+
+// ==========================================
+// TASKS (Günlük Çalışma Programım)
+// ==========================================
+
+export const fetchTasks = async (userId: string): Promise<StudyTask[]> => {
+  const q = query(collection(db, TASKS_COLLECTION), where('userId', '==', userId));
+  const snapshot = await getDocs(q);
+
+  const items = snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      subject: data.subject,
+      topic: data.topic,
+      durationMinutes: data.durationMinutes ?? 30,
+      completed: Boolean(data.completed),
+      date: data.date,
+      category: data.category,
+      _createdAt: typeof data.createdAt === 'number' ? data.createdAt : 0
+    };
+  });
+
+  items.sort((a, b) => b._createdAt - a._createdAt);
+
+  return items.map(({ _createdAt: _, ...task }) => task);
+};
+
+export const addTaskToFirestore = async (
+  userId: string,
+  taskData: Omit<StudyTask, 'id'>
+): Promise<StudyTask> => {
+  const payload = {
+    userId,
+    subject: taskData.subject,
+    topic: taskData.topic,
+    durationMinutes: taskData.durationMinutes ?? 30,
+    completed: taskData.completed,
+    date: taskData.date,
+    category: taskData.category,
+    createdAt: Date.now()
+  };
+
+  const docRef = await addDoc(collection(db, TASKS_COLLECTION), payload);
+  return {
+    id: docRef.id,
+    ...taskData
+  };
+};
+
+export const toggleTaskInFirestore = async (
+  taskId: string,
+  completed: boolean
+): Promise<void> => {
+  const taskRef = doc(db, TASKS_COLLECTION, taskId);
+  await updateDoc(taskRef, { completed });
+};
+
+export const deleteTaskFromFirestore = async (taskId: string): Promise<void> => {
+  const taskRef = doc(db, TASKS_COLLECTION, taskId);
+  await deleteDoc(taskRef);
+};
+
+// ==========================================
+// EXAMS (Deneme Netlerim)
+// ==========================================
+
+export const fetchExams = async (userId: string): Promise<TrialExam[]> => {
+  const q = query(collection(db, EXAMS_COLLECTION), where('userId', '==', userId));
+  const snapshot = await getDocs(q);
+
+  const items = snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    return {
+      id: docSnap.id,
+      examType: data.examType,
+      ...(data.field ? { field: data.field } : {}),
+      name: data.name,
+      date: data.date,
+      ...(data.publisher ? { publisher: data.publisher } : {}),
+      scores: data.scores ?? { total: 0 },
+      _createdAt: typeof data.createdAt === 'number' ? data.createdAt : 0
+    };
+  });
+
+  items.sort((a, b) => b._createdAt - a._createdAt);
+
+  return items.map(({ _createdAt: _, ...exam }) => exam);
+};
+
+export const addExamToFirestore = async (
+  userId: string,
+  examData: Omit<TrialExam, 'id'>
+): Promise<TrialExam> => {
+  const cleanScores: TrialExam['scores'] = { total: examData.scores.total };
+  Object.entries(examData.scores).forEach(([key, val]) => {
+    if (val !== undefined) {
+      (cleanScores as Record<string, number>)[key] = val;
+    }
+  });
+
+  const payload = {
+    userId,
+    examType: examData.examType,
+    name: examData.name,
+    date: examData.date,
+    scores: cleanScores,
+    createdAt: Date.now(),
+    ...(examData.field ? { field: examData.field } : {}),
+    ...(examData.publisher ? { publisher: examData.publisher } : {})
+  };
+
+  const docRef = await addDoc(collection(db, EXAMS_COLLECTION), payload);
+  return {
+    id: docRef.id,
+    ...examData,
+    scores: cleanScores
+  };
+};
+
+export const deleteExamFromFirestore = async (examId: string): Promise<void> => {
+  const examRef = doc(db, EXAMS_COLLECTION, examId);
+  await deleteDoc(examRef);
+};
+
+// ==========================================
+// STUDY STATS (Çalışma Sayacı İstatistikleri)
+// ==========================================
+
+export const fetchStudyStats = async (userId: string): Promise<StudyStatsRecord> => {
+  const q = query(collection(db, STATS_COLLECTION), where('userId', '==', userId));
+  const snapshot = await getDocs(q);
+
+  if (snapshot.empty) {
+    return EMPTY_STUDY_STATS;
+  }
+
+  const docSnap = snapshot.docs[0];
+  const data = docSnap.data();
+
+  return {
+    docId: docSnap.id,
+    dailyMinutes: data.dailyMinutes ?? {},
+    dailySessions: data.dailySessions ?? {}
+  };
+};
+
+export const saveStudyStatsToFirestore = async (
+  userId: string,
+  currentDocId: string | null,
+  nextStats: StudyStatsData
+): Promise<string> => {
+  if (currentDocId) {
+    const statsRef = doc(db, STATS_COLLECTION, currentDocId);
+    await updateDoc(statsRef, {
+      dailyMinutes: nextStats.dailyMinutes,
+      dailySessions: nextStats.dailySessions,
+      updatedAt: Date.now()
+    });
+    return currentDocId;
+  }
+
+  const docRef = await addDoc(collection(db, STATS_COLLECTION), {
+    userId,
+    dailyMinutes: nextStats.dailyMinutes,
+    dailySessions: nextStats.dailySessions,
+    updatedAt: Date.now()
+  });
+
+  return docRef.id;
+};

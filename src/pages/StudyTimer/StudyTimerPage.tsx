@@ -11,7 +11,9 @@ import {
   VolumeX, 
   BarChart2,
   Sliders,
-  Check
+  Check,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -25,21 +27,19 @@ import {
 } from 'recharts';
 import { Card } from '../../components/common/Card';
 import { useAuth } from '../../context/AuthContext';
+import { getLocalDateKey } from '../../utils/date';
 import {
-  STORAGE_PREFIXES,
-  EMPTY_STUDY_STATS,
-  getLocalDateKey,
-  getUserStorageKey,
-  readLocalStorageJson,
-  writeLocalStorageJson
-} from '../../utils/storage';
-import type { StudyStatsData } from '../../utils/storage';
+  fetchStudyStats,
+  saveStudyStatsToFirestore,
+  EMPTY_STUDY_STATS
+} from '../../services/firestoreService';
+import type { StudyStatsRecord } from '../../services/firestoreService';
 
 const TURKISH_WEEKDAYS = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
 
 export const StudyTimerPage: React.FC = () => {
   const { user } = useAuth();
-  const storageKey = getUserStorageKey(STORAGE_PREFIXES.STUDY_STATS, user?.id);
+  const userId = user?.id ?? 'guest';
 
   // Preset or custom durations (in minutes)
   const [workDuration, setWorkDuration] = useState<number>(50);
@@ -56,9 +56,11 @@ export const StudyTimerPage: React.FC = () => {
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
-  // Real persisted study statistics (initialized empty/zero and loaded via useEffect)
-  const [studyStats, setStudyStats] = useState<StudyStatsData>(EMPTY_STUDY_STATS);
-  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  // Real Firestore study statistics
+  const [studyStats, setStudyStats] = useState<StudyStatsRecord>(EMPTY_STUDY_STATS);
+  const [isLoadingStats, setIsLoadingStats] = useState<boolean>(true);
+  const [statsErrorMsg, setStatsErrorMsg] = useState<string | null>(null);
+  const studyStatsRef = useRef<StudyStatsRecord>(EMPTY_STUDY_STATS);
 
   // Modal / Notification when timer completes
   const [completionAlert, setCompletionAlert] = useState<{
@@ -70,22 +72,41 @@ export const StudyTimerPage: React.FC = () => {
   // Critical background protection timestamp reference
   const targetTimestampRef = useRef<number | null>(null);
 
-  // Check localStorage on mount / user change
   useEffect(() => {
-    const stored = readLocalStorageJson<StudyStatsData>(storageKey, EMPTY_STUDY_STATS);
-    setStudyStats({
-      dailyMinutes: stored?.dailyMinutes ?? {},
-      dailySessions: stored?.dailySessions ?? {}
-    });
-    setLoadedKey(storageKey);
-  }, [storageKey]);
+    studyStatsRef.current = studyStats;
+  }, [studyStats]);
 
-  // Persist stats changes after initial load
+  // Fetch study stats from Firestore on mount / user change
   useEffect(() => {
-    if (loadedKey === storageKey) {
-      writeLocalStorageJson(storageKey, studyStats);
-    }
-  }, [studyStats, storageKey, loadedKey]);
+    let isMounted = true;
+
+    const loadStats = async () => {
+      setIsLoadingStats(true);
+      setStatsErrorMsg(null);
+      try {
+        const fetched = await fetchStudyStats(userId);
+        if (isMounted) {
+          setStudyStats(fetched);
+          studyStatsRef.current = fetched;
+        }
+      } catch (err) {
+        console.error('Firestore stats fetch error:', err);
+        if (isMounted) {
+          setStatsErrorMsg('Çalışma istatistikleri Firestore veritabanından yüklenemedi.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingStats(false);
+        }
+      }
+    };
+
+    loadStats();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId]);
 
   // Clean Audio Chime via Web Audio API (No external file needed, background-safe)
   const playAlarmSound = () => {
@@ -134,21 +155,42 @@ export const StudyTimerPage: React.FC = () => {
 
             if (mode === 'work') {
               const activeDateKey = getLocalDateKey();
-              setStudyStats((prev) => ({
+              const current = studyStatsRef.current;
+              const nextStats = {
                 dailyMinutes: {
-                  ...prev.dailyMinutes,
-                  [activeDateKey]: (prev.dailyMinutes[activeDateKey] ?? 0) + workDuration
+                  ...current.dailyMinutes,
+                  [activeDateKey]: (current.dailyMinutes[activeDateKey] ?? 0) + workDuration
                 },
                 dailySessions: {
-                  ...prev.dailySessions,
-                  [activeDateKey]: (prev.dailySessions[activeDateKey] ?? 0) + 1
+                  ...current.dailySessions,
+                  [activeDateKey]: (current.dailySessions[activeDateKey] ?? 0) + 1
                 }
-              }));
+              };
+
+              const optimisticRecord: StudyStatsRecord = {
+                docId: current.docId,
+                ...nextStats
+              };
+              setStudyStats(optimisticRecord);
+              studyStatsRef.current = optimisticRecord;
+
+              void saveStudyStatsToFirestore(userId, current.docId, nextStats)
+                .then((savedDocId) => {
+                  setStudyStats((prev) => {
+                    const updated = { ...prev, docId: savedDocId };
+                    studyStatsRef.current = updated;
+                    return updated;
+                  });
+                })
+                .catch((err) => {
+                  console.error('Firestore stats save error:', err);
+                  setStatsErrorMsg('Tamamlanan seans Firestore veritabanına kaydedilemedi.');
+                });
 
               setCompletionAlert({
                 show: true,
                 title: 'Çalışma Seansı Başarıyla Tamamlandı! 🎉',
-                message: `${workDuration} dakikalık odaklanma süren başarıyla kaydedildi. Şimdi ${breakDuration} dakikalık hak ettiğin molaya geçebilirsin.`
+                message: `${workDuration} dakikalık odaklanma süren Firestore'a kaydedildi. Şimdi ${breakDuration} dakikalık hak ettiğin molaya geçebilirsin.`
               });
               
               // Automatically switch to break mode
@@ -293,6 +335,14 @@ export const StudyTimerPage: React.FC = () => {
           <span>{soundEnabled ? 'Zil Aktif' : 'Zil Sessizde'}</span>
         </button>
       </div>
+
+      {/* Firestore Stats Error Alert */}
+      {statsErrorMsg && (
+        <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3.5 flex items-center gap-2.5 text-xs text-rose-300">
+          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+          <span>{statsErrorMsg}</span>
+        </div>
+      )}
 
       {/* Completion Modal / Notification Banner */}
       {completionAlert?.show && (
@@ -566,10 +616,17 @@ export const StudyTimerPage: React.FC = () => {
                 Bugün Toplam Çalışılan Süre
               </span>
               <div className="text-3xl font-extrabold text-white tracking-tight mt-0.5">
-                {todayHours} Saat {todayRemainingMins} Dakika
+                {isLoadingStats ? (
+                  <span className="inline-flex items-center gap-2 text-lg text-slate-300 font-semibold">
+                    <Loader2 className="w-5 h-5 animate-spin text-brand-purpleLight" />
+                    Yükleniyor...
+                  </span>
+                ) : (
+                  `${todayHours} Saat ${todayRemainingMins} Dakika`
+                )}
               </div>
               <p className="text-xs text-slate-400 mt-1">
-                Her tamamlanan çalışma seansı bu süreye otomatik olarak eklenir.
+                Her tamamlanan çalışma seansı Firestore istatistiklerine otomatik eklenir.
               </p>
             </div>
           </div>
@@ -577,7 +634,9 @@ export const StudyTimerPage: React.FC = () => {
           <div className="flex items-center gap-6 sm:gap-8 border-t md:border-t-0 md:border-l border-slate-800 pt-4 md:pt-0 md:pl-8">
             <div>
               <span className="text-xs text-slate-400 block">Tamamlanan Seans</span>
-              <span className="text-xl font-bold text-emerald-400">{completedSessionsCount} Seans</span>
+              <span className="text-xl font-bold text-emerald-400">
+                {isLoadingStats ? '...' : `${completedSessionsCount} Seans`}
+              </span>
               <span className="text-[11px] text-slate-500 block mt-0.5">Bugün</span>
             </div>
 
@@ -585,7 +644,7 @@ export const StudyTimerPage: React.FC = () => {
               <span className="text-xs text-slate-400 block">Günlük Hedef</span>
               <span className="text-xl font-bold text-white">6 Saat</span>
               <span className="text-[11px] text-brand-purpleLight block mt-0.5">
-                %{Math.min(100, Math.round((todayStudyMinutes / 360) * 100))} Tamamlandı
+                %{isLoadingStats ? 0 : Math.min(100, Math.round((todayStudyMinutes / 360) * 100))} Tamamlandı
               </span>
             </div>
           </div>
@@ -629,7 +688,15 @@ export const StudyTimerPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="h-72 w-full">
+        {isLoadingStats ? (
+          <div className="h-72 flex flex-col items-center justify-center text-center">
+            <Loader2 className="w-8 h-8 text-brand-purpleLight animate-spin mb-3" />
+            <p className="text-sm font-medium text-slate-300">
+              Haftalık çalışma verileri Firestore'dan yükleniyor...
+            </p>
+          </div>
+        ) : (
+          <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={weeklyChartData} margin={{ top: 10, right: 15, left: -20, bottom: 5 }}>
               <defs>
@@ -705,6 +772,7 @@ export const StudyTimerPage: React.FC = () => {
             </LineChart>
           </ResponsiveContainer>
         </div>
+        )}
       </Card>
     </div>
   );

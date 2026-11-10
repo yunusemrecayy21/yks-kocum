@@ -7,7 +7,9 @@ import {
   Award,
   Calendar,
   Sparkles,
-  LineChart as LineChartIcon
+  LineChart as LineChartIcon,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -22,13 +24,12 @@ import {
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { useAuth } from '../../context/AuthContext';
+import { getLocalDateKey } from '../../utils/date';
 import {
-  STORAGE_PREFIXES,
-  getLocalDateKey,
-  getUserStorageKey,
-  readLocalStorageJson,
-  writeLocalStorageJson
-} from '../../utils/storage';
+  fetchExams,
+  addExamToFirestore,
+  deleteExamFromFirestore
+} from '../../services/firestoreService';
 import type { StudyField, TrialExam } from '../../types';
 
 interface ScoreFieldConfig {
@@ -115,15 +116,15 @@ const CustomChartTooltip: React.FC<CustomTooltipProps> = ({ active, payload }) =
 
 export const ExamScoresPage: React.FC = () => {
   const { user, onboardingProfile, isTytOnly } = useAuth();
+  const userId = user?.id ?? 'guest';
   const studyField = onboardingProfile?.studyField ?? 'Sayısal';
   const aytField: Exclude<StudyField, 'Sadece TYT'> =
     studyField === 'Sadece TYT' ? 'Sayısal' : studyField;
 
-  const storageKey = getUserStorageKey(STORAGE_PREFIXES.EXAMS, user?.id);
-
-  // Start with empty array []; load from localStorage in useEffect
   const [exams, setExams] = useState<TrialExam[]>([]);
-  const [loadedKey, setLoadedKey] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'TYT' | 'AYT'>('TYT');
   const [isAdding, setIsAdding] = useState(false);
@@ -134,19 +135,36 @@ export const ExamScoresPage: React.FC = () => {
   const [date, setDate] = useState(() => getLocalDateKey());
   const [scoreInputs, setScoreInputs] = useState<Record<string, string>>({});
 
-  // Load saved exams from localStorage on mount / user change
+  // Fetch saved exams from Firestore on mount / user change
   useEffect(() => {
-    const stored = readLocalStorageJson<TrialExam[]>(storageKey, []);
-    setExams(Array.isArray(stored) ? stored : []);
-    setLoadedKey(storageKey);
-  }, [storageKey]);
+    let isMounted = true;
 
-  // Save exams to localStorage whenever state updates after initial load
-  useEffect(() => {
-    if (loadedKey === storageKey) {
-      writeLocalStorageJson(storageKey, exams);
-    }
-  }, [exams, storageKey, loadedKey]);
+    const loadExams = async () => {
+      setIsLoading(true);
+      setErrorMsg(null);
+      try {
+        const fetched = await fetchExams(userId);
+        if (isMounted) {
+          setExams(fetched);
+        }
+      } catch (err) {
+        console.error('Firestore exams fetch error:', err);
+        if (isMounted) {
+          setErrorMsg('Deneme sonuçları Firestore veritabanından yüklenemedi.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadExams();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [userId]);
 
   // Enforce TYT-only mode if user is 9/10 grade or Sadece TYT
   useEffect(() => {
@@ -197,9 +215,12 @@ export const ExamScoresPage: React.FC = () => {
     }));
   };
 
-  const handleAddExam = (e: React.FormEvent) => {
+  const handleAddExam = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setErrorMsg(null);
 
     const scoresObj: TrialExam['scores'] = { total: previewTotal };
     activeScoreFields.forEach((field) => {
@@ -207,25 +228,41 @@ export const ExamScoresPage: React.FC = () => {
       scoresObj[field.key] = val;
     });
 
-    const newExam: TrialExam = {
-      id: Date.now().toString(),
-      examType: isTytOnly ? 'TYT' : activeTab,
-      field: !isTytOnly && activeTab === 'AYT' ? aytField : undefined,
-      name: name.trim(),
-      publisher: publisher.trim() || undefined,
-      date,
-      scores: scoresObj
-    };
+    try {
+      const created = await addExamToFirestore(userId, {
+        examType: isTytOnly ? 'TYT' : activeTab,
+        field: !isTytOnly && activeTab === 'AYT' ? aytField : undefined,
+        name: name.trim(),
+        publisher: publisher.trim() || undefined,
+        date,
+        scores: scoresObj
+      });
 
-    setExams((prev) => [newExam, ...prev]);
-    setName('');
-    setPublisher('');
-    setScoreInputs({});
-    setIsAdding(false);
+      setExams((prev) => [created, ...prev]);
+      setName('');
+      setPublisher('');
+      setScoreInputs({});
+      setIsAdding(false);
+    } catch (err) {
+      console.error('Firestore exam add error:', err);
+      setErrorMsg('Deneme sonucu kaydedilemedi. Lütfen tekrar deneyin.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const deleteExam = (id: string) => {
+  const deleteExam = async (id: string) => {
+    const previousExams = exams;
+    setErrorMsg(null);
     setExams((prev) => prev.filter((e) => e.id !== id));
+
+    try {
+      await deleteExamFromFirestore(id);
+    } catch (err) {
+      console.error('Firestore exam delete error:', err);
+      setExams(previousExams);
+      setErrorMsg('Deneme kaydı silinemedi. Lütfen tekrar deneyin.');
+    }
   };
 
   // Metrics calculation
@@ -319,7 +356,8 @@ export const ExamScoresPage: React.FC = () => {
 
           <button
             onClick={() => setIsAdding(!isAdding)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purpleHover text-white text-xs font-semibold shadow-lg shadow-brand-purple/20 transition"
+            disabled={isLoading}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-purple hover:bg-brand-purpleHover disabled:opacity-60 text-white text-xs font-semibold shadow-lg shadow-brand-purple/20 transition"
           >
             <Plus className="w-4 h-4" />
             <span>Deneme Ekle</span>
@@ -327,12 +365,22 @@ export const ExamScoresPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Error Alert */}
+      {errorMsg && (
+        <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-3.5 flex items-center gap-2.5 text-xs text-rose-300">
+          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
       {/* Stats Summary Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="p-5 flex items-center justify-between">
           <div>
             <span className="text-xs font-medium text-slate-400">Son Girilen Net</span>
-            <div className="text-2xl font-bold text-white mt-1">{latestNet}</div>
+            <div className="text-2xl font-bold text-white mt-1">
+              {isLoading ? '...' : latestNet}
+            </div>
             <p className="text-[11px] text-slate-500 mt-0.5">{activeTab} Sonuç</p>
           </div>
           <div className="p-3 rounded-xl bg-brand-purple/10 text-brand-purpleLight border border-brand-purple/20">
@@ -343,7 +391,9 @@ export const ExamScoresPage: React.FC = () => {
         <Card className="p-5 flex items-center justify-between">
           <div>
             <span className="text-xs font-medium text-slate-400">Ortalama Net</span>
-            <div className="text-2xl font-bold text-white mt-1">{averageNet}</div>
+            <div className="text-2xl font-bold text-white mt-1">
+              {isLoading ? '...' : averageNet}
+            </div>
             <p className="text-[11px] text-slate-500 mt-0.5">
               {currentTabExams.length} Deneme Ortalaması
             </p>
@@ -356,7 +406,9 @@ export const ExamScoresPage: React.FC = () => {
         <Card className="p-5 flex items-center justify-between">
           <div>
             <span className="text-xs font-medium text-slate-400">En Yüksek Net (Rekor)</span>
-            <div className="text-2xl font-bold text-emerald-400 mt-1">{highestNet}</div>
+            <div className="text-2xl font-bold text-emerald-400 mt-1">
+              {isLoading ? '...' : highestNet}
+            </div>
             <p className="text-[11px] text-slate-500 mt-0.5">Kişisel Rekor</p>
           </div>
           <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -382,7 +434,7 @@ export const ExamScoresPage: React.FC = () => {
             </div>
           </div>
 
-          {chartData.length > 1 && (
+          {!isLoading && chartData.length > 1 && (
             <div className="flex items-center gap-2 self-start sm:self-auto">
               <span className="text-xs text-slate-400">Net Gelişimi:</span>
               <span
@@ -399,7 +451,14 @@ export const ExamScoresPage: React.FC = () => {
           )}
         </div>
 
-        {chartData.length === 0 ? (
+        {isLoading ? (
+          <div className="h-64 flex flex-col items-center justify-center text-center">
+            <Loader2 className="w-8 h-8 text-brand-purpleLight animate-spin mb-3" />
+            <p className="text-sm font-medium text-slate-300">
+              Deneme verileri Firestore'dan yükleniyor...
+            </p>
+          </div>
+        ) : chartData.length === 0 ? (
           <div className="h-64 flex flex-col items-center justify-center text-center px-4 border border-dashed border-slate-800 rounded-2xl bg-slate-950/30">
             <div className="w-12 h-12 rounded-2xl bg-brand-purple/10 border border-brand-purple/25 flex items-center justify-center mb-3 text-brand-purpleLight">
               <LineChartIcon className="w-6 h-6" />
@@ -598,9 +657,11 @@ export const ExamScoresPage: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-brand-purple hover:bg-brand-purpleHover text-white text-xs font-semibold rounded-xl transition shadow-md shadow-brand-purple/20"
+                  disabled={isSubmitting}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 bg-brand-purple hover:bg-brand-purpleHover disabled:opacity-60 text-white text-xs font-semibold rounded-xl transition shadow-md shadow-brand-purple/20"
                 >
-                  Sonucu Kaydet
+                  {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isSubmitting ? 'Kaydediliyor...' : 'Sonucu Kaydet'}</span>
                 </button>
               </div>
             </div>
@@ -616,7 +677,12 @@ export const ExamScoresPage: React.FC = () => {
           </span>
         </div>
 
-        {currentTabExams.length === 0 ? (
+        {isLoading ? (
+          <Card className="py-12 flex flex-col items-center justify-center text-center">
+            <Loader2 className="w-7 h-7 text-brand-purpleLight animate-spin mb-2" />
+            <p className="text-xs text-slate-400">Kayıtlar yükleniyor...</p>
+          </Card>
+        ) : currentTabExams.length === 0 ? (
           <Card className="text-center py-12 border-dashed border-slate-800">
             <BarChart3 className="w-12 h-12 text-slate-600 mx-auto mb-3" />
             <h3 className="text-base font-semibold text-white">
