@@ -84,11 +84,48 @@ export const AiCoachProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
         setMessages((prev) => [...prev, aiMsg]);
       } catch (err) {
-        console.error('Gemini AI Coach error:', err);
+        const errorDetails = err as {
+          message?: string;
+          status?: number;
+          statusText?: string;
+          errorDetails?: unknown;
+        };
+        const rawMessage = errorDetails?.message ?? String(err);
+
+        console.error('[AiCoachContext Error]', {
+          message: rawMessage,
+          status: errorDetails?.status,
+          statusText: errorDetails?.statusText,
+          errorDetails: errorDetails?.errorDetails,
+          rawError: err
+        });
+
+        let userFriendlyError =
+          'Üzgünüm, şu an yapay zeka koçuna bağlanırken bir sorun oluştu. Lütfen tekrar dene.';
+
+        if (rawMessage.includes('VITE_GEMINI_API_KEY')) {
+          userFriendlyError =
+            'API anahtarı bulunamadı: VITE_GEMINI_API_KEY ortam değişkeni tanımlı değil.';
+        } else if (
+          rawMessage.includes('API_KEY_INVALID') ||
+          errorDetails?.status === 400 ||
+          errorDetails?.status === 401 ||
+          errorDetails?.status === 403
+        ) {
+          userFriendlyError =
+            'Gemini API anahtarı geçersiz veya yetkisiz görünüyor. Lütfen VITE_GEMINI_API_KEY ayarını kontrol edin.';
+        } else if (errorDetails?.status === 404 || rawMessage.includes('404')) {
+          userFriendlyError =
+            'Seçilen Gemini modeli bulunamadı (404). Model adını kontrol edin.';
+        } else if (errorDetails?.status === 429 || rawMessage.includes('429')) {
+          userFriendlyError =
+            'Gemini API kullanım kotası aşıldı. Lütfen kısa bir süre bekleyip tekrar deneyin.';
+        }
+
         const errorMsg: ChatMessage = {
           id: `error-${Date.now()}`,
           role: 'model',
-          text: 'Üzgünüm, şu an yapay zeka koçuna bağlanırken bir sorun oluştu. Lütfen internet bağlantını ve Gemini API anahtarını kontrol edip tekrar dene.',
+          text: userFriendlyError,
           timestamp: new Date().toLocaleTimeString('tr-TR', {
             hour: '2-digit',
             minute: '2-digit'
