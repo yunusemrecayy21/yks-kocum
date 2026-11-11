@@ -2,6 +2,7 @@ import {
   collection,
   query,
   where,
+  getDoc,
   getDocs,
   addDoc,
   setDoc,
@@ -10,6 +11,7 @@ import {
   doc
 } from 'firebase/firestore';
 import { db } from '../firebase';
+import type { KanbanColumnId } from '../data/subjectsData';
 import type { MockExam, StudySession, StudyTask, TrialExam, UserOnboardingProfile } from '../types';
 
 export interface StudyStatsData {
@@ -443,6 +445,71 @@ export const saveUserRecordToFirestore = async (
       fullName: cleanName,
       displayName: cleanName,
       updatedAt: Date.now()
+    },
+    { merge: true }
+  );
+};
+
+// ==========================================
+// KANBAN KONU TAKİBİ (users koleksiyonu)
+// ==========================================
+
+export interface UserKanbanRecord {
+  progress: Record<string, KanbanColumnId>;
+  updatedAt: number;
+}
+
+const isValidKanbanStatus = (val: unknown): val is KanbanColumnId =>
+  val === 'todo' || val === 'in_progress' || val === 'done';
+
+export const fetchKanbanProgressFromFirestore = async (
+  userId: string
+): Promise<UserKanbanRecord | null> => {
+  const userRef = doc(db, USERS_COLLECTION, userId);
+  const snapshot = await getDoc(userRef);
+
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  const data = snapshot.data();
+  const rawProgress = data.kanbanProgress;
+  if (!rawProgress || typeof rawProgress !== 'object') {
+    return null;
+  }
+
+  const sanitized: Record<string, KanbanColumnId> = {};
+  Object.entries(rawProgress as Record<string, unknown>).forEach(([topicId, status]) => {
+    if (isValidKanbanStatus(status) && status !== 'todo') {
+      sanitized[topicId] = status;
+    }
+  });
+
+  return {
+    progress: sanitized,
+    updatedAt: typeof data.kanbanUpdatedAt === 'number' ? data.kanbanUpdatedAt : 0
+  };
+};
+
+export const saveKanbanProgressToFirestore = async (
+  userId: string,
+  progress: Record<string, KanbanColumnId>,
+  updatedAt: number = Date.now()
+): Promise<void> => {
+  const cleanProgress: Record<string, KanbanColumnId> = {};
+  Object.entries(progress).forEach(([topicId, status]) => {
+    if (isValidKanbanStatus(status) && status !== 'todo') {
+      cleanProgress[topicId] = status;
+    }
+  });
+
+  await setDoc(
+    doc(db, USERS_COLLECTION, userId),
+    {
+      userId,
+      kanbanProgress: cleanProgress,
+      kanbanUpdatedAt: updatedAt,
+      updatedAt
     },
     { merge: true }
   );

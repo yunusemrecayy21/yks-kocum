@@ -10,7 +10,7 @@ import { Layout } from './components/layout/Layout';
 import { AuthPage } from './pages/Auth/AuthPage';
 import { OnboardingPage } from './pages/Onboarding/OnboardingPage';
 import { DashboardPage } from './pages/Dashboard/DashboardPage';
-import { DailySchedulePage } from './pages/DailySchedule/DailySchedulePage';
+import { StudyProgram } from './pages/StudyProgram';
 import { StudyTimerPage } from './pages/StudyTimer/StudyTimerPage';
 import { ExamScoresPage } from './pages/ExamScores/ExamScoresPage';
 import { AiCoachPage } from './pages/AiCoach/AiCoachPage';
@@ -38,7 +38,7 @@ export const App: React.FC = () => {
                 <Route element={<ProtectedRoute />}>
                   <Route path="/" element={<Layout />}>
                     <Route index element={<DashboardPage />} />
-                    <Route path="program" element={<DailySchedulePage />} />
+                    <Route path="program" element={<StudyProgram />} />
                     <Route path="sayac" element={<StudyTimerPage />} />
                     <Route path="denemeler" element={<ExamScoresPage />} />
                     <Route path="koc" element={<AiCoachPage />} />

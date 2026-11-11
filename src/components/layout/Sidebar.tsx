@@ -52,10 +52,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       badge: 'Özet',
     },
     {
-      name: 'Günlük Çalışma Programım',
+      name: 'Çalışma Programım',
       path: '/program',
       icon: CheckSquare,
-      badge: 'To-Do',
+      badge: 'Kanban',
     },
     {
       name: 'Çalışma Sayacı',
